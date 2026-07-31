@@ -146,14 +146,21 @@ if [ ! -d "/root/vitaicmin" ] || [ ! -d "/root/deployvtc" ]; then
     if [ ! -d "/root/vitaicmin" ] || [ ! -d "/root/deployvtc" ]; then
         echo ""
         echo "GitHub PAT token (untuk clone private repo):"
+        echo "  PAT = string acak (contoh: ghp_abc123...). BUKAN URL repo."
+        echo "  Ketik 'skip' untuk melewati dan lanjut manual."
         read -p "> " GH_TOKEN
-        while [ -z "$GH_TOKEN" ]; do
-            echo -e "${RED}Token wajib diisi!${NC}"
-            read -p "> " GH_TOKEN
-        done
-
-        [ ! -d "/root/vitaicmin" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/vitaicmin.git
-        [ ! -d "/root/deployvtc" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/deployvtc.git
+        if [ "${GH_TOKEN,,}" = "skip" ] || [ -z "$GH_TOKEN" ]; then
+            echo -e "${YELLOW}Clone dilewati. Lanjut ke langkah berikutnya.${NC}"
+        else
+            # Validasi: PAT tidak boleh mengandung karakter URL
+            case "$GH_TOKEN" in
+                *"http"*|*"@"*|*"/"*) echo -e "${RED}Input tidak valid: itu bukan PAT token. Dilewati.${NC}" ;;
+                *)
+                    [ ! -d "/root/vitaicmin" ] && git clone "https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/vitaicmin.git"
+                    [ ! -d "/root/deployvtc" ] && git clone "https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/deployvtc.git"
+                    ;;
+            esac
+        fi
     fi
 fi
 

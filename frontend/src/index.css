@@ -1817,3 +1817,209 @@ h3 {
   color: var(--accent-dark);
   margin-top: 0.2rem;
 }
+
+/* ==================== QRIS PRESET PICKER ==================== */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.preset-option {
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-card-solid);
+}
+
+.preset-option:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-accent);
+}
+
+.preset-option.active {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-accent-lg);
+}
+
+.preset-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  background: #f1f5f9;
+}
+
+.preset-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  background: var(--accent-bg);
+}
+
+.preset-name {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  padding: 0.35rem 0.25rem;
+  text-transform: capitalize;
+  border-top: 1px solid var(--border-card);
+}
+
+.preset-option.active .preset-name {
+  color: var(--accent-dark);
+  font-weight: 800;
+}
+
+/* ==================== DEPLOY PROGRESS (Result) ==================== */
+.deploy-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  opacity: 0.5;
+  transition: all 0.3s;
+}
+
+.progress-step.active {
+  opacity: 1;
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  box-shadow: var(--shadow-accent);
+}
+
+.progress-step.done {
+  opacity: 0.85;
+  border-color: rgba(5, 150, 105, 0.3);
+  background: var(--success-bg);
+}
+
+.progress-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  background: var(--bg-card-solid);
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+
+.progress-step.done .progress-icon {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+
+.progress-step.active .progress-icon {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  animation: pulse 1.6s infinite;
+}
+
+.progress-text {
+  flex: 1;
+}
+
+.progress-title {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.progress-desc {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.1rem;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(14, 165, 233, 0); }
+}
+
+/* ==================== RENEW SUCCESS FULLSCREEN ==================== */
+.success-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: linear-gradient(135deg, rgba(12, 74, 110, 0.95), rgba(2, 132, 199, 0.92));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.success-box {
+  background: var(--bg-card-solid);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xl);
+  max-width: 400px;
+  width: 100%;
+  padding: 2rem;
+  text-align: center;
+}
+
+.success-check {
+  width: 92px;
+  height: 92px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  background: var(--success-bg);
+  color: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(5, 150, 105, 0.25);
+}
+
+.success-box h2 {
+  font-size: 1.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.success-box p {
+  color: var(--text-dim);
+  margin-bottom: 1.25rem;
+}
+
+.success-details {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  text-align: left;
+}
+
+.success-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+}
+
+.success-row span {
+  color: var(--text-dim);
+}
+
+.success-row strong {
+  color: var(--text-bright);
+}

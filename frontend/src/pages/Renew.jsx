@@ -19,6 +19,7 @@ export default function Renew() {
     // Popup pembayaran
     const [payModal, setPayModal] = useState(null) // { order_id, amount, days, qr, signature, status }
     const [confirming, setConfirming] = useState(false)
+    const [successView, setSuccessView] = useState(null) // { days, newExpiresAt } — layar sukses penuh
 
     const checkLicense = async () => {
         const k = key.trim().toUpperCase()
@@ -96,10 +97,21 @@ export default function Renew() {
             })
             const data = await res.json()
             if (data.success && data.paid) {
-                setPayModal(m => ({ ...m, status: 'paid', extended: data.extended }))
-                // Update info license di belakang
+                // Sukses: update detail license + tampilkan layar sukses penuh
                 const chk = await fetch(`/api/renew/check?key=${encodeURIComponent(info.license.key)}`).then(r => r.json())
                 if (chk.success) setInfo(chk)
+                setPayModal(null)
+                setSuccessView({
+                    days: payModal.days,
+                    amount: payModal.amount,
+                    newExpiresAt: data.extended?.newExpiresAt || chk.license?.expires_at || null
+                })
+            } else if (data.success && data.already_paid) {
+                // Sudah dibayar sebelumnya — langsung sukses juga
+                const chk = await fetch(`/api/renew/check?key=${encodeURIComponent(info.license.key)}`).then(r => r.json())
+                if (chk.success) setInfo(chk)
+                setPayModal(null)
+                setSuccessView({ days: payModal.days, amount: payModal.amount, newExpiresAt: chk.license?.expires_at || null })
             } else if (data.success) {
                 setPayModal(m => ({ ...m, status: data.status === 'expired' ? 'expired' : 'pending', message: data.message }))
             } else {
@@ -116,9 +128,45 @@ export default function Renew() {
         setPayModal(null)
     }
 
+    const closeSuccess = () => setSuccessView(null)
+
     return (
         <>
             <Navbar />
+
+            {/* ==================== SUCCESS FULLSCREEN VIEW ==================== */}
+            {successView && (
+                <div className="success-fullscreen">
+                    <motion.div
+                        className="success-box"
+                        initial={{ opacity: 0, scale: 0.85 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+                    >
+                        <motion.div
+                            className="success-check"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.2, type: 'spring', stiffness: 300, damping: 15 }}
+                        >
+                            <CheckCircle size={56} />
+                        </motion.div>
+                        <h2>Pembayaran Berhasil! 🎉</h2>
+                        <p>License kamu berhasil diperpanjang.</p>
+                        <div className="success-details">
+                            <div className="success-row"><span>Durasi</span><strong>+{successView.days} hari</strong></div>
+                            <div className="success-row"><span>Total Bayar</span><strong>{fmtRp(successView.amount)}</strong></div>
+                            {successView.newExpiresAt && (
+                                <div className="success-row"><span>Expired Baru</span><strong>{new Date(successView.newExpiresAt).toLocaleDateString('id-ID')}</strong></div>
+                            )}
+                        </div>
+                        <button className="btn btn-primary btn-lg btn-full" onClick={closeSuccess} style={{ marginTop: '1rem' }}>
+                            Lihat Detail Lisensi
+                        </button>
+                    </motion.div>
+                </div>
+            )}
+
             <div className="deploy-page">
                 <div className="deploy-container">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>

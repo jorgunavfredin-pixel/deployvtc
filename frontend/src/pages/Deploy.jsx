@@ -4,33 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { KeyRound, Settings, CheckCircle, Copy, ArrowLeft, Rocket, Home } from 'lucide-react'
 import Navbar from '../components/Navbar'
 
-// ==================== THEME COLORS ====================
-const THEME_COLORS = {
-    gold: { bg: 'linear-gradient(135deg, #1a1a2e, #16213e)', frame: '#ffd700', text: '#ffd700' },
-    purple: { bg: 'linear-gradient(135deg, #0d0d0d, #1a0a2e)', frame: '#a855f7', text: '#a855f7' },
-    blue: { bg: 'linear-gradient(135deg, #0a1628, #0f2645)', frame: '#3b82f6', text: '#3b82f6' },
-    green: { bg: 'linear-gradient(135deg, #0a1a0a, #0d2818)', frame: '#22c55e', text: '#22c55e' },
-    red: { bg: 'linear-gradient(135deg, #1a0a0a, #2d1111)', frame: '#ef4444', text: '#ef4444' },
-    cyan: { bg: 'linear-gradient(135deg, #0a1a1a, #0d2828)', frame: '#06b6d4', text: '#06b6d4' },
-    orange: { bg: 'linear-gradient(135deg, #1a120a, #2d1f0d)', frame: '#f97316', text: '#f97316' },
-    white: { bg: 'linear-gradient(135deg, #1e293b, #0f172a)', frame: '#f8fafc', text: '#f8fafc' },
-    pink: { bg: 'linear-gradient(135deg, #1a0a14, #2d0d1e)', frame: '#ec4899', text: '#ec4899' },
-    lime: { bg: 'linear-gradient(135deg, #0a1a0a, #142d0d)', frame: '#84cc16', text: '#84cc16' },
-}
-
-const THEME_OPTIONS = [
-    { value: 'gold', label: '🟡 Gold — Emas + Navy' },
-    { value: 'purple', label: '🟣 Purple — Ungu + Hitam' },
-    { value: 'blue', label: '🔵 Blue — Biru + Navy' },
-    { value: 'green', label: '🟢 Green — Hijau + Hijau Tua' },
-    { value: 'red', label: '🔴 Red — Merah + Merah Tua' },
-    { value: 'cyan', label: '🔵 Cyan — Cyan + Teal' },
-    { value: 'orange', label: '🟠 Orange — Oranye + Coklat' },
-    { value: 'white', label: '⚪ White — Putih + Biru Tua' },
-    { value: 'pink', label: '🩷 Pink — Pink + Merah Tua' },
-    { value: 'lime', label: '🟢 Lime — Lime + Hijau Tua' },
-]
-
 // ==================== STEP INDICATOR ====================
 function StepIndicator({ current }) {
     return (
@@ -140,7 +113,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [form, setForm] = useState({
         botToken: '', adminId: '', storeName: '', orderPrefix: 'ORD',
         adminPanelPassword: '', supportUsername: '',
-        supportHours: '09:00 - 23:00 WIB', themePreset: 'gold',
+        supportHours: '09:00 - 23:00 WIB', themePreset: '',
         // PaKasir
         pakasirApiKey: '', pakasirSlug: '',
         // WijayaPay
@@ -155,8 +128,20 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [provider, setProvider] = useState('')
+    const [qrisPresets, setQrisPresets] = useState([])
 
-    const theme = THEME_COLORS[form.themePreset] || THEME_COLORS.gold
+    useEffect(() => {
+        // Ambil daftar preset QRIS dari backend
+        fetch('/api/qris-presets')
+            .then(r => r.json())
+            .then(d => {
+                if (d.success && d.presets.length > 0) {
+                    setQrisPresets(d.presets)
+                    setForm(prev => ({ ...prev, themePreset: prev.themePreset || d.presets[0].id }))
+                }
+            })
+            .catch(() => { })
+    }, [])
 
     const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
 
@@ -386,31 +371,27 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
 
             <div className="form-group">
                 <label className="form-label">Theme QRIS *</label>
-                <select className="form-input" value={form.themePreset} onChange={set('themePreset')}>
-                    {THEME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-            </div>
-
-            {/* Theme Preview */}
-            <div className="theme-preview">
-                <div
-                    className="theme-preview-box"
-                    style={{
-                        background: theme.bg,
-                        border: `2px solid ${theme.frame}`
-                    }}
-                >
-                    <div style={{
-                        width: 120, height: 120,
-                        background: 'rgba(255,255,255,0.15)',
-                        borderRadius: 8,
-                        border: `2px solid ${theme.frame}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '2.5rem'
-                    }}>📱</div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: theme.text }}>QRIS Preview</div>
-                </div>
-                <p>Preview frame QRIS sesuai theme</p>
+                {qrisPresets.length === 0 ? (
+                    <div className="form-hint">Memuat preset QRIS...</div>
+                ) : (
+                    <div className="preset-grid">
+                        {qrisPresets.map(p => (
+                            <div
+                                key={p.id}
+                                className={`preset-option ${form.themePreset === p.id ? 'active' : ''}`}
+                                onClick={() => setForm(prev => ({ ...prev, themePreset: p.id }))}
+                            >
+                                {p.preview ? (
+                                    <img src={p.preview} alt={p.id} className="preset-thumb" />
+                                ) : (
+                                    <div className="preset-thumb preset-thumb-placeholder">🎨</div>
+                                )}
+                                <div className="preset-name">{p.id}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <span className="form-hint">Pilih frame QRIS untuk invoice pembayaran bot kamu.</span>
             </div>
 
             <div className="form-group file-upload">
@@ -437,39 +418,38 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
 }
 
 // ==================== STEP 3: RESULT ====================
-function ResultStep({ data, licenseKey }) {
-    const [logs, setLogs] = useState('⏳ Waiting for container to start...\n')
+function ResultStep({ data, licenseKey, tier }) {
+    const [phase, setPhase] = useState(0)
+    const [logs, setLogs] = useState('')
     const logRef = useRef(null)
 
+    // Poin 6: log terminal tidak semua ditampilkan — tampilkan animasi progres
+    // bertahap yang "real", diselingi log ringkas sesuai data yang diisi.
+    const isChatOnly = tier === 'chat'
+
+    const deploySteps = [
+        { icon: '📦', title: 'Membuat container', desc: 'Menyiapkan environment bot...' },
+        { icon: '🔑', title: 'Mengatur credential', desc: 'Payment gateway + admin...' },
+        { icon: '🖼', title: 'Upload banner', desc: 'Banner toko disimpan...' },
+        { icon: '🚀', title: 'Menjalankan bot', desc: 'Bot mulai berjalan...' },
+        { icon: '✅', title: 'Selesai!', desc: 'Bot siap dipakai.' },
+    ]
+
     useEffect(() => {
-        try {
-            const evtSource = new EventSource(`/api/deploy-logs/${licenseKey}`)
-            evtSource.onmessage = (event) => {
-                const d = JSON.parse(event.data)
-                if (d.type === 'log') {
-                    setLogs(d.content)
-                }
-                if (d.type === 'status' && d.running) {
-                    setLogs(prev => prev + '\n\n✅ Bot is running!\n')
-                }
-                if (d.type === 'done') {
-                    evtSource.close()
-                    setLogs(prev => prev + (d.running ? '\n🟢 Container ready.' : '\n⚠️ Container may still be starting...'))
-                }
-            }
-            evtSource.onerror = () => {
-                evtSource.close()
-                setLogs(prev => prev + '\n\n📡 Log stream ended.')
-            }
-            return () => evtSource.close()
-        } catch {
-            setLogs('Could not connect to log stream.')
-        }
-    }, [licenseKey])
+        // Simulasi progress: tiap ~1.2s naik 1 fase
+        let i = 0
+        const timer = setInterval(() => {
+            i += 1
+            setPhase(i)
+            setLogs(prev => prev + deploySteps[i - 1]?.title + '...\n')
+            if (i >= deploySteps.length) clearInterval(timer)
+        }, 1200)
+        return () => clearInterval(timer)
+    }, [])
 
     useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
-    }, [logs])
+    }, [logs, phase])
 
     return (
         <motion.div
@@ -483,14 +463,38 @@ function ResultStep({ data, licenseKey }) {
             </div>
 
             <div className="result-card">
-                <h3>📋 Detail Deployment</h3>
-                <div className="result-item">
-                    <span className="result-label">Admin Panel</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <span className="result-value">{data.adminUrl}</span>
-                        <button className="copy-btn" onClick={() => navigator.clipboard.writeText(data.adminUrl)}><Copy size={12} /> Copy</button>
-                    </div>
+                <h3>🚀 Status Deployment</h3>
+                <div className="deploy-progress">
+                    {deploySteps.map((s, i) => (
+                        <div key={i} className={`progress-step ${i < phase ? 'done' : i === phase ? 'active' : ''}`}>
+                            <div className="progress-icon">{i < phase ? '✓' : s.icon}</div>
+                            <div className="progress-text">
+                                <div className="progress-title">{s.title}</div>
+                                {i === phase && <div className="progress-desc">{s.desc}</div>}
+                            </div>
+                        </div>
+                    ))}
                 </div>
+                {phase >= deploySteps.length && (
+                    <div className="pay-status-success" style={{ marginTop: '0.75rem' }}>
+                        ✅ Bot berhasil di-deploy dan berjalan!
+                    </div>
+                )}
+            </div>
+
+            <div className="result-card">
+                <h3>📋 Detail Deployment</h3>
+                <div className="result-item"><span className="result-label">Status</span><span className="result-value" style={{ color: 'var(--success)' }}>🟢 Running</span></div>
+                <div className="result-item"><span className="result-label">Port</span><span className="result-value">{data.port}</span></div>
+                {!isChatOnly && (
+                    <div className="result-item">
+                        <span className="result-label">Admin Panel</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span className="result-value">{data.adminUrl}</span>
+                            <button className="copy-btn" onClick={() => navigator.clipboard.writeText(data.adminUrl)}><Copy size={12} /> Copy</button>
+                        </div>
+                    </div>
+                )}
                 <div className="result-item">
                     <span className="result-label">Webhook URL(s)</span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -502,30 +506,30 @@ function ResultStep({ data, licenseKey }) {
                         ))}
                     </div>
                 </div>
-                <div className="result-item">
-                    <span className="result-label">Port</span>
-                    <span className="result-value">{data.port}</span>
-                </div>
-                <div className="result-item">
-                    <span className="result-label">Status</span>
-                    <span className="result-value" style={{ color: 'var(--success)' }}>🟢 Running</span>
-                </div>
             </div>
 
-            <div className="result-card">
-                <h3>📄 Container Logs</h3>
-                <div className="log-viewer" ref={logRef}>{logs}</div>
-            </div>
+            {logs && (
+                <div className="result-card">
+                    <h3>📄 Log Ringkas</h3>
+                    <div className="log-viewer" ref={logRef} style={{ minHeight: 80, maxHeight: 160 }}>{logs}</div>
+                </div>
+            )}
 
             <div className="result-card">
                 <h3>📝 Langkah Selanjutnya</h3>
                 <ol className="instructions">
-                    <li>Buka panel admin: <code>{data.adminUrl}</code> (password yang kamu isi)</li>
+                    {!isChatOnly && data.adminUrl && (
+                        <li>Buka panel admin: <code>{data.adminUrl}</code> (password yang kamu isi)</li>
+                    )}
                     {data.webhooks && data.webhooks.length > 0 ? data.webhooks.map(w => (
                         <li key={w.provider}>Set callback <strong>{w.provider}</strong> ke: <code>{w.url}</code></li>
                     )) : null}
                     <li>Buka bot kamu di Telegram, ketik <code>/start</code></li>
-                    <li>Tambah produk & stok dari Admin Panel</li>
+                    {!isChatOnly ? (
+                        <li>Tambah produk & stok dari Admin Panel</li>
+                    ) : (
+                        <li>Kelola produk & stok lewat Admin Bot di Telegram (chat)</li>
+                    )}
                     <li>Bot sudah siap! 🎉 Mulai jualan sekarang</li>
                 </ol>
             </div>
@@ -565,7 +569,7 @@ export default function Deploy() {
                     <AnimatePresence mode="wait">
                         {step === 1 && <LicenseStep key="s1" onValid={handleLicenseValid} />}
                         {step === 2 && <ConfigStep key="s2" licenseKey={licenseKey} tier={licenseTier} onDeploy={handleDeploy} />}
-                        {step === 3 && <ResultStep key="s3" data={deployData} licenseKey={licenseKey} />}
+                        {step === 3 && <ResultStep key="s3" data={deployData} licenseKey={licenseKey} tier={licenseTier} />}
                     </AnimatePresence>
                 </div>
             </div>

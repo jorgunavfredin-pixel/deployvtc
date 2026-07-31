@@ -50,43 +50,68 @@ else
     echo -e "${GREEN}PM2 installed${NC}"
 fi
 
-# ==================== STEP 4: Rclone ====================
-echo -e "${YELLOW}[4/8] Installing Rclone (Google Drive backup)...${NC}"
-if command -v rclone &> /dev/null; then
-    echo "Rclone already installed"
+# ==================== STEP 4: Rclone (opsional — bisa skip) ====================
+echo -e "${YELLOW}[4/8] Rclone (Google Drive backup)...${NC}"
+echo -e "${CYAN}Install rclone? (y/n, default n = skip)${NC}"
+read -p "> " INSTALL_RCLONE
+if [ "${INSTALL_RCLONE,,}" = "y" ]; then
+    if command -v rclone &> /dev/null; then
+        echo "Rclone already installed"
+    else
+        # Unduh binary rclone langsung dari GitHub release (lebih cepat & stabil
+        # daripada curl install.sh yang lambat/redirect).
+        cd /tmp
+        RCLONE_VERSION="v1.68.2"
+        ARCH=$(uname -m)
+        case "$ARCH" in
+            x86_64|amd64) RCLONE_ARCH="amd64" ;;
+            aarch64|arm64) RCLONE_ARCH="arm64" ;;
+            *) echo -e "${RED}Unsupported arch: $ARCH. Skip rclone.${NC}"; INSTALL_RCLONE=n ;;
+        esac
+        if [ "${INSTALL_RCLONE,,}" = "y" ]; then
+            curl -L -o rclone.zip "https://github.com/rclone/rclone/releases/download/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-${RCLONE_ARCH}.zip" || true
+            if [ -f rclone.zip ]; then
+                unzip -o rclone.zip >/dev/null 2>&1 && cp rclone-*/rclone /usr/local/bin/rclone && chmod +x /usr/local/bin/rclone && rm -rf rclone.zip rclone-* && echo -e "${GREEN}Rclone installed: $(rclone version 2>/dev/null | head -1)${NC}"
+            else
+                echo -e "${RED}Gagal download rclone. Auto-skip (backup ke GDrive nonaktif).${NC}"
+                INSTALL_RCLONE=n
+            fi
+        fi
+    fi
 else
-    curl https://rclone.org/install.sh | bash
-    echo -e "${GREEN}Rclone installed${NC}"
+    echo "Skipped. Backup Google Drive nonaktif (cron backup akan skip)."
 fi
 
-# Setup rclone config
-if [ -f "/root/.config/rclone/rclone.conf" ]; then
-    echo "Rclone config already exists, skipping"
-else
-    echo ""
-    echo -e "${CYAN}Paste token rclone dari VPS lama:${NC}"
-    echo "  (jalankan di VPS lama: cat /root/.config/rclone/rclone.conf)"
-    echo "  Paste isi token JSON, atau tekan Enter untuk skip"
-    read -p "> " RCLONE_TOKEN
+# Setup rclone config (hanya bila rclone terpasang)
+if [ "${INSTALL_RCLONE,,}" = "y" ] && command -v rclone &> /dev/null; then
+    if [ -f "/root/.config/rclone/rclone.conf" ]; then
+        echo "Rclone config already exists, skipping"
+    else
+        echo ""
+        echo -e "${CYAN}Paste token rclone dari VPS lama:${NC}"
+        echo "  (jalankan di VPS lama: cat /root/.config/rclone/rclone.conf)"
+        echo "  Paste isi token JSON, atau tekan Enter untuk skip"
+        read -p "> " RCLONE_TOKEN
 
-    if [ -n "$RCLONE_TOKEN" ]; then
-        mkdir -p /root/.config/rclone
-        cat > /root/.config/rclone/rclone.conf << REOF
+        if [ -n "$RCLONE_TOKEN" ]; then
+            mkdir -p /root/.config/rclone
+            cat > /root/.config/rclone/rclone.conf << REOF
 [gdrive]
 type = drive
 scope = drive
 token = ${RCLONE_TOKEN}
 team_drive =
 REOF
-        echo -e "${GREEN}Rclone config created!${NC}"
-        echo "Testing Google Drive connection..."
-        if rclone lsd gdrive: --max-depth 1 2>/dev/null; then
-            echo -e "${GREEN}✅ Google Drive connected!${NC}"
+            echo -e "${GREEN}Rclone config created!${NC}"
+            echo "Testing Google Drive connection..."
+            if rclone lsd gdrive: --max-depth 1 2>/dev/null; then
+                echo -e "${GREEN}✅ Google Drive connected!${NC}"
+            else
+                echo -e "${RED}⚠️ Failed. Setup manual nanti: rclone config${NC}"
+            fi
         else
-            echo -e "${RED}⚠️ Failed. Setup manual nanti: rclone config${NC}"
+            echo "Skipped. Setup manual nanti: rclone config"
         fi
-    else
-        echo "Skipped. Setup manual nanti: rclone config"
     fi
 fi
 

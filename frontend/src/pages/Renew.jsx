@@ -322,10 +322,10 @@ export default function Renew() {
                         {/* Actions */}
                         {payModal.status !== 'paid' && (
                             <div className="pay-actions">
-                                <button className="btn btn-primary btn-lg" onClick={confirmPay} disabled={confirming}>
-                                    {confirming ? <><span className="spinner" /> Mengecek...</> : <><CheckCircle size={18} /> Saya Sudah Bayar — Cek Status</>}
+                                <button className="btn btn-primary" onClick={confirmPay} disabled={confirming} style={{ width: '100%' }}>
+                                    {confirming ? <><span className="spinner" /> Mengecek...</> : <><CheckCircle size={16} /> Saya Sudah Bayar — Cek Status</>}
                                 </button>
-                                <button className="btn btn-outline" onClick={closeModal}>
+                                <button className="btn btn-outline" onClick={closeModal} style={{ width: '100%' }}>
                                     Tutup
                                 </button>
                             </div>
@@ -333,8 +333,8 @@ export default function Renew() {
 
                         {payModal.status === 'paid' && (
                             <div className="pay-actions">
-                                <button className="btn btn-primary btn-lg" onClick={closeIfPaid}>
-                                    <CheckCircle size={18} /> Selesai
+                                <button className="btn btn-primary" onClick={closeIfPaid} style={{ width: '100%' }}>
+                                    <CheckCircle size={16} /> Selesai
                                 </button>
                             </div>
                         )}

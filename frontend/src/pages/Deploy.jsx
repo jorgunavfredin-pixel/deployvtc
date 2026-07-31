@@ -129,6 +129,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [error, setError] = useState('')
     const [provider, setProvider] = useState('')
     const [qrisPresets, setQrisPresets] = useState([])
+    const [selectedPreset, setSelectedPreset] = useState(null)
 
     useEffect(() => {
         // Ambil daftar preset QRIS dari backend
@@ -138,12 +139,27 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 if (d.success && d.presets.length > 0) {
                     setQrisPresets(d.presets)
                     setForm(prev => ({ ...prev, themePreset: prev.themePreset || d.presets[0].id }))
+                    setSelectedPreset(d.presets[0])
                 }
             })
             .catch(() => { })
     }, [])
 
     const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
+
+    // Ganti provider → clear semua field payment gateway yang lama
+    const changeProvider = (e) => {
+        const next = e.target.value
+        setProvider(next)
+        setForm(prev => ({
+            ...prev,
+            pakasirApiKey: '', pakasirSlug: '',
+            wijayapayCodeMerchant: '', wijayapayApiKey: '',
+            xoftwareApiKey: '', xoftwareMerchantId: '', xoftwareWebhookSecret: '',
+            xoftwareNotifyUrl: '', xoftwareFeeDirection: 'merchant',
+            klikqrisApiKey: '', klikqrisMerchantId: ''
+        }))
+    }
 
     const deploy = async () => {
         const { botToken, adminId, storeName, adminPanelPassword, supportUsername } = form
@@ -276,7 +292,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
 
             <div className="form-group">
                 <label className="form-label">Payment Gateway *</label>
-                <select className="form-input" value={provider} onChange={e => setProvider(e.target.value)}>
+                <select className="form-input" value={provider} onChange={changeProvider}>
                     <option value="">— Pilih Payment Gateway —</option>
                     <option value="pakasir">PaKasir</option>
                     <option value="wijayapay">WijayaPay</option>
@@ -374,22 +390,31 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 {qrisPresets.length === 0 ? (
                     <div className="form-hint">Memuat preset QRIS...</div>
                 ) : (
-                    <div className="preset-grid">
-                        {qrisPresets.map(p => (
-                            <div
-                                key={p.id}
-                                className={`preset-option ${form.themePreset === p.id ? 'active' : ''}`}
-                                onClick={() => setForm(prev => ({ ...prev, themePreset: p.id }))}
-                            >
-                                {p.preview ? (
-                                    <img src={p.preview} alt={p.id} className="preset-thumb" />
-                                ) : (
-                                    <div className="preset-thumb preset-thumb-placeholder">🎨</div>
-                                )}
-                                <div className="preset-name">{p.id}</div>
+                    <>
+                        <select
+                            className="form-input"
+                            value={form.themePreset}
+                            onChange={e => {
+                                const id = e.target.value
+                                setForm(prev => ({ ...prev, themePreset: id }))
+                                setSelectedPreset(qrisPresets.find(p => p.id === id) || null)
+                            }}
+                        >
+                            {qrisPresets.map(p => (
+                                <option key={p.id} value={p.id}>{p.id}</option>
+                            ))}
+                        </select>
+                        {selectedPreset && (
+                            <div className="preset-preview-wrap">
+                                <img
+                                    src={`/api/qris-preset-preview/${encodeURIComponent(selectedPreset.id)}`}
+                                    alt={selectedPreset.id}
+                                    className="preset-preview-img"
+                                />
+                                <div className="preset-preview-label">{selectedPreset.id}</div>
                             </div>
-                        ))}
-                    </div>
+                        )}
+                    </>
                 )}
                 <span className="form-hint">Pilih frame QRIS untuk invoice pembayaran bot kamu.</span>
             </div>
@@ -464,19 +489,21 @@ function ResultStep({ data, licenseKey, tier }) {
 
             <div className="result-card">
                 <h3>🚀 Status Deployment</h3>
-                <div className="deploy-progress">
-                    {deploySteps.map((s, i) => (
-                        <div key={i} className={`progress-step ${i < phase ? 'done' : i === phase ? 'active' : ''}`}>
-                            <div className="progress-icon">{i < phase ? '✓' : s.icon}</div>
-                            <div className="progress-text">
-                                <div className="progress-title">{s.title}</div>
-                                {i === phase && <div className="progress-desc">{s.desc}</div>}
+                {phase < deploySteps.length ? (
+                    <div className="deploy-status-line">
+                        <span className="deploy-status-icon">
+                            <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                        </span>
+                        <div className="deploy-status-text">
+                            <div className="deploy-status-title">{deploySteps[phase]?.title}...</div>
+                            <div className="deploy-status-desc">{deploySteps[phase]?.desc}</div>
+                            <div className="deploy-status-bar">
+                                <div className="deploy-status-bar-fill" style={{ width: `${(phase / deploySteps.length) * 100}%` }} />
                             </div>
                         </div>
-                    ))}
-                </div>
-                {phase >= deploySteps.length && (
-                    <div className="pay-status-success" style={{ marginTop: '0.75rem' }}>
+                    </div>
+                ) : (
+                    <div className="pay-status-success">
                         ✅ Bot berhasil di-deploy dan berjalan!
                     </div>
                 )}

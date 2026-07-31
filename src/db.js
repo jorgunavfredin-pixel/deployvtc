@@ -225,7 +225,7 @@ const markRenewalPaid = (orderId, paidAt) => {
  * Extend deployment expiry by N days (base = expiry sekarang, bukan hari ini).
  */
 const extendDeploymentExpiry = (containerName, days) => {
-    const dep = db.getDeploymentByContainer(containerName);
+    const dep = getDeploymentByContainer(containerName);
     if (!dep) return null;
     const base = dep.expires_at && new Date(dep.expires_at).getTime() > Date.now()
         ? new Date(dep.expires_at)

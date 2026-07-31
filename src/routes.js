@@ -38,8 +38,7 @@ const deployLimiter = rateLimit({
 
 /**
  * GET /api/qris-presets
- * List preset QRIS dari folder assets/qris-custom/presets di repo vitaicmin.
- * Kembalikan nama file + URL untuk preview (dikirim sebagai base64 / path statis).
+ * List preset QRIS dari folder (tanpa base64 — frontend fetch preview per gambar).
  */
 router.get('/api/qris-presets', (req, res) => {
     const fs = require('fs');
@@ -51,21 +50,36 @@ router.get('/api/qris-presets', (req, res) => {
         const files = fs.readdirSync(presetDir)
             .filter(f => exts.includes(path.extname(f).toLowerCase()))
             .sort();
-        const presets = files.map(f => {
-            const id = path.basename(f, path.extname(f));
-            // Preview: baca file, kirim base64 kecil (thumbnail via data URL)
-            let preview = null;
-            try {
-                const buf = fs.readFileSync(path.join(presetDir, f));
-                if (buf.length <= 2 * 1024 * 1024) {
-                    preview = `data:image/${path.extname(f).slice(1)};base64,${buf.toString('base64')}`;
-                }
-            } catch (_) { /* skip preview kalau gagal */ }
-            return { id, file: f, preview };
-        });
+        const presets = files.map(f => ({ id: path.basename(f, path.extname(f)), file: f }));
         res.json({ success: true, presets });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * GET /api/qris-preset-preview/:id
+ * Kirim gambar preset (browser cache, load per gambar). Content-Type sesuai ekstensi.
+ */
+router.get('/api/qris-preset-preview/:id', (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const presetDir = process.env.QRIS_PRESET_DIR || '/root/vitaicmin/assets/qris-custom/presets';
+    const safeId = String(req.params.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const exts = ['.png', '.jpg', '.jpeg', '.webp'];
+    try {
+        for (const ext of exts) {
+            const p = path.join(presetDir, `${safeId}${ext}`);
+            if (fs.existsSync(p)) {
+                const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+                res.setHeader('Content-Type', mime);
+                res.setHeader('Cache-Control', 'public, max-age=3600');
+                return res.sendFile(p);
+            }
+        }
+        res.status(404).json({ error: 'Preset not found' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

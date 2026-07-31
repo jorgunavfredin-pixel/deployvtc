@@ -120,8 +120,17 @@ function LicenseStep({ onValid }) {
 function ConfigStep({ licenseKey, onDeploy }) {
     const [form, setForm] = useState({
         botToken: '', adminId: '', storeName: '', orderPrefix: 'ORD',
-        pakasirApiKey: '', pakasirSlug: '', supportUsername: '',
-        supportHours: '09:00 - 23:00 WIB', themePreset: 'gold'
+        adminPanelPassword: '', supportUsername: '',
+        supportHours: '09:00 - 23:00 WIB', themePreset: 'gold',
+        // PaKasir
+        pakasirApiKey: '', pakasirSlug: '',
+        // WijayaPay
+        wijayapayCodeMerchant: '', wijayapayApiKey: '',
+        // Xoftware
+        xoftwareApiKey: '', xoftwareMerchantId: '', xoftwareWebhookSecret: '',
+        xoftwareNotifyUrl: '', xoftwareFeeDirection: 'merchant',
+        // KlikQRIS
+        klikqrisApiKey: '', klikqrisMerchantId: ''
     })
     const [banner, setBanner] = useState(null)
     const [loading, setLoading] = useState(false)
@@ -132,10 +141,16 @@ function ConfigStep({ licenseKey, onDeploy }) {
     const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
 
     const deploy = async () => {
-        const { botToken, adminId, storeName, pakasirApiKey, pakasirSlug, supportUsername } = form
-        if (!botToken || !adminId || !storeName || !pakasirApiKey || !pakasirSlug || !supportUsername) {
-            return setError('Semua field wajib harus diisi.')
+        const { botToken, adminId, storeName, adminPanelPassword, supportUsername } = form
+        if (!botToken || !adminId || !storeName || !adminPanelPassword || !supportUsername) {
+            return setError('Field wajib (bot token, admin id, nama toko, password admin, support username) harus diisi.')
         }
+        const hasGateway =
+            (form.pakasirApiKey && form.pakasirSlug) ||
+            (form.wijayapayCodeMerchant && form.wijayapayApiKey) ||
+            (form.xoftwareApiKey && form.xoftwareMerchantId && form.xoftwareWebhookSecret) ||
+            (form.klikqrisApiKey && form.klikqrisMerchantId)
+        if (!hasGateway) return setError('Minimal satu payment gateway QRIS harus diisi (PaKasir / WijayaPay / Xoftware / KlikQRIS).')
         if (!banner) return setError('Banner toko wajib diupload (PNG only).')
         if (banner.type !== 'image/png') return setError('Banner harus berformat PNG.')
 
@@ -166,11 +181,25 @@ function ConfigStep({ licenseKey, onDeploy }) {
         fd.append('admin_id', form.adminId.trim())
         fd.append('store_name', form.storeName.trim())
         fd.append('order_prefix', form.orderPrefix.trim())
-        fd.append('pakasir_api_key', form.pakasirApiKey.trim())
-        fd.append('pakasir_slug', form.pakasirSlug.trim())
+        fd.append('admin_panel_password', form.adminPanelPassword.trim())
         fd.append('support_username', form.supportUsername.trim())
         fd.append('support_hours', form.supportHours.trim())
         fd.append('theme_preset', form.themePreset)
+        // PaKasir
+        fd.append('pakasir_api_key', form.pakasirApiKey.trim())
+        fd.append('pakasir_slug', form.pakasirSlug.trim())
+        // WijayaPay
+        fd.append('wijayapay_code_merchant', form.wijayapayCodeMerchant.trim())
+        fd.append('wijayapay_api_key', form.wijayapayApiKey.trim())
+        // Xoftware
+        fd.append('xoftware_api_key', form.xoftwareApiKey.trim())
+        fd.append('xoftware_merchant_id', form.xoftwareMerchantId.trim())
+        fd.append('xoftware_webhook_secret', form.xoftwareWebhookSecret.trim())
+        fd.append('xoftware_notify_url', form.xoftwareNotifyUrl.trim())
+        fd.append('xoftware_fee_direction', form.xoftwareFeeDirection)
+        // KlikQRIS
+        fd.append('klikqris_api_key', form.klikqrisApiKey.trim())
+        fd.append('klikqris_merchant_id', form.klikqrisMerchantId.trim())
         fd.append('banner', banner)
 
         try {
@@ -224,14 +253,75 @@ function ConfigStep({ licenseKey, onDeploy }) {
                 </div>
             </div>
 
+            <div className="form-group">
+                <label className="form-label">Admin Panel Password *</label>
+                <input className="form-input" type="password" placeholder="Password untuk akses panel admin" value={form.adminPanelPassword} onChange={set('adminPanelPassword')} />
+                <span className="form-hint">Dipakai login di {`${window.location.origin}/admin`} setelah deploy</span>
+            </div>
+
+            <div className="form-group">
+                <label className="form-label">Payment Gateway QRIS * (isi minimal satu)</label>
+                <span className="form-hint">Pilih salah satu / beberapa provider. Yang kosong akan diabaikan.</span>
+            </div>
+
             <div className="form-row">
                 <div className="form-group">
-                    <label className="form-label">PaKasir API Key *</label>
+                    <label className="form-label">PaKasir API Key</label>
                     <input className="form-input" placeholder="API key dari PaKasir" value={form.pakasirApiKey} onChange={set('pakasirApiKey')} />
                 </div>
                 <div className="form-group">
-                    <label className="form-label">PaKasir Slug *</label>
+                    <label className="form-label">PaKasir Slug</label>
                     <input className="form-input" placeholder="slug project PaKasir" value={form.pakasirSlug} onChange={set('pakasirSlug')} />
+                </div>
+            </div>
+
+            <div className="form-row">
+                <div className="form-group">
+                    <label className="form-label">WijayaPay Code Merchant</label>
+                    <input className="form-input" placeholder="cth: WP692f1bafd86" value={form.wijayapayCodeMerchant} onChange={set('wijayapayCodeMerchant')} />
+                </div>
+                <div className="form-group">
+                    <label className="form-label">WijayaPay API Key</label>
+                    <input className="form-input" type="password" placeholder="API key dari WijayaPay" value={form.wijayapayApiKey} onChange={set('wijayapayApiKey')} />
+                </div>
+            </div>
+
+            <div className="form-group">
+                <label className="form-label">Xoftware API Key</label>
+                <input className="form-input" type="password" placeholder="API key dari Xoftware" value={form.xoftwareApiKey} onChange={set('xoftwareApiKey')} />
+            </div>
+            <div className="form-row">
+                <div className="form-group">
+                    <label className="form-label">Xoftware Merchant ID</label>
+                    <input className="form-input" placeholder="cth: 12345" value={form.xoftwareMerchantId} onChange={set('xoftwareMerchantId')} />
+                </div>
+                <div className="form-group">
+                    <label className="form-label">Xoftware Webhook Secret</label>
+                    <input className="form-input" type="password" placeholder="Webhook secret Xoftware" value={form.xoftwareWebhookSecret} onChange={set('xoftwareWebhookSecret')} />
+                </div>
+            </div>
+            <div className="form-row">
+                <div className="form-group">
+                    <label className="form-label">Xoftware Notify URL (opsional)</label>
+                    <input className="form-input" placeholder="https://t.me/nama_bot" value={form.xoftwareNotifyUrl} onChange={set('xoftwareNotifyUrl')} />
+                </div>
+                <div className="form-group">
+                    <label className="form-label">Xoftware Fee Direction</label>
+                    <select className="form-input" value={form.xoftwareFeeDirection} onChange={set('xoftwareFeeDirection')}>
+                        <option value="merchant">Merchant (fee dipotong settlement)</option>
+                        <option value="user">User (fee ditambahkan ke buyer)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className="form-row">
+                <div className="form-group">
+                    <label className="form-label">KlikQRIS API Key</label>
+                    <input className="form-input" type="password" placeholder="API key dari KlikQRIS" value={form.klikqrisApiKey} onChange={set('klikqrisApiKey')} />
+                </div>
+                <div className="form-group">
+                    <label className="form-label">KlikQRIS Merchant ID</label>
+                    <input className="form-input" placeholder="cth: 123456789" value={form.klikqrisMerchantId} onChange={set('klikqrisMerchantId')} />
                 </div>
             </div>
 
@@ -302,7 +392,6 @@ function ConfigStep({ licenseKey, onDeploy }) {
 // ==================== STEP 3: RESULT ====================
 function ResultStep({ data, licenseKey }) {
     const [logs, setLogs] = useState('⏳ Waiting for container to start...\n')
-    const [copied, setCopied] = useState(false)
     const logRef = useRef(null)
 
     useEffect(() => {
@@ -335,13 +424,6 @@ function ResultStep({ data, licenseKey }) {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
     }, [logs])
 
-    const copyWebhook = () => {
-        navigator.clipboard.writeText(data.webhookUrl).then(() => {
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1500)
-        }).catch(() => { })
-    }
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -356,12 +438,21 @@ function ResultStep({ data, licenseKey }) {
             <div className="result-card">
                 <h3>📋 Detail Deployment</h3>
                 <div className="result-item">
-                    <span className="result-label">Webhook URL</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span className="result-value">{data.webhookUrl}</span>
-                        <button className="copy-btn" onClick={copyWebhook}>
-                            <Copy size={12} /> {copied ? 'Copied!' : 'Copy'}
-                        </button>
+                    <span className="result-label">Admin Panel</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span className="result-value">{data.adminUrl}</span>
+                        <button className="copy-btn" onClick={() => navigator.clipboard.writeText(data.adminUrl)}><Copy size={12} /> Copy</button>
+                    </div>
+                </div>
+                <div className="result-item">
+                    <span className="result-label">Webhook URL(s)</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        {(data.webhooks || []).map(w => (
+                            <div key={w.provider} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <span className="result-value" style={{ fontSize: '0.8rem' }}>{w.provider}: {w.url}</span>
+                                <button className="copy-btn" onClick={() => navigator.clipboard.writeText(w.url)}><Copy size={12} /> Copy</button>
+                            </div>
+                        ))}
                     </div>
                 </div>
                 <div className="result-item">
@@ -382,11 +473,12 @@ function ResultStep({ data, licenseKey }) {
             <div className="result-card">
                 <h3>📝 Langkah Selanjutnya</h3>
                 <ol className="instructions">
-                    <li>Buka <strong>PaKasir</strong> → Project → Pilih <strong>{data.pakasirSlug}</strong></li>
-                    <li>Paste webhook URL: <code>{data.webhookUrl}</code></li>
-                    <li>Ganti mode Sandbox ke <strong>Production</strong></li>
+                    <li>Buka panel admin: <code>{data.adminUrl}</code> (password yang kamu isi)</li>
+                    {data.webhooks && data.webhooks.length > 0 ? data.webhooks.map(w => (
+                        <li key={w.provider}>Set callback <strong>{w.provider}</strong> ke: <code>{w.url}</code></li>
+                    )) : null}
                     <li>Buka bot kamu di Telegram, ketik <code>/start</code></li>
-                    <li>Tambah produk & stok dari Admin Panel (<code>/admin</code>)</li>
+                    <li>Tambah produk & stok dari Admin Panel</li>
                     <li>Bot sudah siap! 🎉 Mulai jualan sekarang</li>
                 </ol>
             </div>

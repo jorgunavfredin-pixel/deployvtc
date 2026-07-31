@@ -88,9 +88,18 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
     try {
         const {
             license_key, bot_token, admin_id,
-            pakasir_api_key, pakasir_slug,
             store_name, support_username,
-            order_prefix, support_hours, theme_preset
+            order_prefix, support_hours, theme_preset,
+            admin_panel_password,
+            // PaKasir
+            pakasir_api_key, pakasir_slug,
+            // WijayaPay
+            wijayapay_code_merchant, wijayapay_api_key,
+            // Xoftware
+            xoftware_api_key, xoftware_merchant_id, xoftware_webhook_secret,
+            xoftware_notify_url, xoftware_fee_direction,
+            // KlikQRIS
+            klikqris_api_key, klikqris_merchant_id
         } = req.body;
 
         // Validate license
@@ -106,28 +115,52 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
         }
 
         // Validate required fields
-        if (!bot_token || !admin_id || !store_name || !pakasir_api_key || !pakasir_slug || !support_username) {
-            return res.status(400).json({ success: false, error: 'Semua field wajib harus diisi.' });
+        if (!bot_token || !admin_id || !store_name || !support_username || !admin_panel_password) {
+            return res.status(400).json({ success: false, error: 'Field wajib (bot token, admin id, nama toko, support username, password admin) harus diisi.' });
+        }
+
+        // Minimal satu payment gateway QRIS wajib terisi
+        const hasPaKasir = !!(pakasir_api_key && pakasir_slug);
+        const hasWijayaPay = !!(wijayapay_code_merchant && wijayapay_api_key);
+        const hasXoftware = !!(xoftware_api_key && xoftware_merchant_id && xoftware_webhook_secret);
+        const hasKlikQRIS = !!(klikqris_api_key && klikqris_merchant_id);
+        if (!hasPaKasir && !hasWijayaPay && !hasXoftware && !hasKlikQRIS) {
+            return res.status(400).json({ success: false, error: 'Minimal satu payment gateway QRIS harus diisi (PaKasir / WijayaPay / Xoftware / KlikQRIS).' });
         }
 
         // Generate random port
         const port = db.generateRandomPort();
         const buyerName = licenseCheck.license.buyer_name || 'buyer';
 
-        // Build .env vars
+        // Build .env vars (sesuai .env.example bot vitaicmin)
         const envVars = {
             BOT_TOKEN: bot_token.trim(),
             ADMIN_ID: admin_id.trim(),
             PORT: '3000',
             WEBHOOK_URL: `http://${VPS_IP}:${port}`,
-            PAKASIR_API_KEY: (pakasir_api_key || '').trim(),
-            PAKASIR_SLUG: (pakasir_slug || '').trim(),
             TZ: 'Asia/Jakarta',
             STORE_NAME: (store_name || 'Store').trim(),
             SUPPORT_USERNAME: (support_username || '').trim(),
             ORDER_PREFIX: (order_prefix || 'ORD').trim(),
             SUPPORT_HOURS: (support_hours || '09:00 - 23:00 WIB').trim(),
-            THEME_PRESET: (theme_preset || 'gold').toLowerCase()
+            THEME_PRESET: (theme_preset || 'gold').toLowerCase(),
+            // Admin panel (wajib biar buyer bisa akses /admin)
+            ADMIN_PANEL_PASSWORD: admin_panel_password.trim(),
+            // PaKasir
+            PAKASIR_API_KEY: (pakasir_api_key || '').trim(),
+            PAKASIR_SLUG: (pakasir_slug || '').trim(),
+            // WijayaPay
+            WIJAYAPAY_CODE_MERCHANT: (wijayapay_code_merchant || '').trim(),
+            WIJAYAPAY_API_KEY: (wijayapay_api_key || '').trim(),
+            // Xoftware
+            XOWFTWARE_API_KEY: (xoftware_api_key || '').trim(),
+            XOWFTWARE_MERCHANT_ID: (xoftware_merchant_id || '').trim(),
+            XOWFTWARE_WEBHOOK_SECRET: (xoftware_webhook_secret || '').trim(),
+            XOWFTWARE_NOTIFY_URL: (xoftware_notify_url || '').trim(),
+            XOWFTWARE_FEE_DIRECTION: (xoftware_fee_direction === 'user' ? 'user' : 'merchant'),
+            // KlikQRIS
+            KLIKQRIS_API_KEY: (klikqris_api_key || '').trim(),
+            KLIKQRIS_MERCHANT_ID: (klikqris_merchant_id || '').trim()
         };
 
         // Deploy container
@@ -162,16 +195,25 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             try { fs.unlinkSync(req.file.path); } catch (e) { }
         }
 
+        const baseWebhook = `http://${VPS_IP}:${port}`;
+        const webhooks = [];
+        if (hasPaKasir) webhooks.push({ provider: 'PaKasir', url: `${baseWebhook}/webhook/qris` });
+        if (hasWijayaPay) webhooks.push({ provider: 'WijayaPay', url: `${baseWebhook}/webhook/wijayapay` });
+        if (hasXoftware) webhooks.push({ provider: 'Xoftware', url: `${baseWebhook}/webhook/xoftware` });
+        if (hasKlikQRIS) webhooks.push({ provider: 'KlikQRIS', url: `${baseWebhook}/webhook/klikqris` });
+
         res.json({
             success: true,
             message: 'Bot berhasil di-deploy! 🎉',
-            webhookUrl: result.webhookUrl,
+            webhookUrl: webhooks[0]?.url || `${baseWebhook}/webhook/qris`,
+            webhooks,
             port: result.port,
             containerName: result.containerName,
             pakasirSlug: (pakasir_slug || '').trim(),
+            adminUrl: `${baseWebhook}/admin`,
             instructions: [
-                `1. Buka PaKasir → Settings → Callback URL`,
-                `2. Paste webhook URL: ${result.webhookUrl}`,
+                `1. Buka panel admin: ${baseWebhook}/admin (password: yang kamu isi)`,
+                ...webhooks.map(w => `2. Set callback ${w.provider}: ${w.url}`),
                 `3. Bot kamu sudah aktif! Coba chat di Telegram`
             ]
         });

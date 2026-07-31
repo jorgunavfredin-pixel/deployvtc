@@ -95,17 +95,17 @@ echo -e "${YELLOW}[5/8] Cloning repositories...${NC}"
 
 cd /root
 
-if [ -d "/root/store-bot" ] || [ -d "/root/vitacimin-deploy" ]; then
+if [ -d "/root/vitaicmin" ] || [ -d "/root/deployvtc" ]; then
     echo -e "${CYAN}Repo sudah ada. Pull latest? (y/n)${NC}"
     read -p "> " DO_PULL
     if [ "$DO_PULL" = "y" ]; then
-        [ -d "/root/store-bot" ] && cd /root/store-bot && git pull && cd /root
-        [ -d "/root/vitacimin-deploy" ] && cd /root/vitacimin-deploy && git pull && cd /root
+        [ -d "/root/vitaicmin" ] && cd /root/vitaicmin && git pull && cd /root
+        [ -d "/root/deployvtc" ] && cd /root/deployvtc && git pull && cd /root
     fi
 fi
 
 # Clone if not exists
-if [ ! -d "/root/store-bot" ] || [ ! -d "/root/vitacimin-deploy" ]; then
+if [ ! -d "/root/vitaicmin" ] || [ ! -d "/root/deployvtc" ]; then
     echo ""
     echo "GitHub PAT token (untuk clone private repo):"
     read -p "> " GH_TOKEN
@@ -114,34 +114,34 @@ if [ ! -d "/root/store-bot" ] || [ ! -d "/root/vitacimin-deploy" ]; then
         read -p "> " GH_TOKEN
     done
 
-    [ ! -d "/root/store-bot" ] && git clone https://vitacimin00:${GH_TOKEN}@github.com/vitacimin00/store-bot.git
-    [ ! -d "/root/vitacimin-deploy" ] && git clone https://vitacimin00:${GH_TOKEN}@github.com/vitacimin00/vitacimin-deploy.git
+    [ ! -d "/root/vitaicmin" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/vitaicmin.git
+    [ ! -d "/root/deployvtc" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/deployvtc.git
 fi
 
 # ==================== STEP 6: Build Docker Image ====================
 echo -e "${YELLOW}[6/8] Building store-bot Docker image...${NC}"
-cd /root/store-bot
+cd /root/vitaicmin
 docker build -t store-bot .
 echo -e "${GREEN}Docker image 'store-bot' built!${NC}"
 
-# ==================== STEP 7: Setup Vitacimin Deploy ====================
-echo -e "${YELLOW}[7/8] Setting up vitacimin-deploy...${NC}"
-cd /root/vitacimin-deploy
+# ==================== STEP 7: Setup Deploy ====================
+echo -e "${YELLOW}[7/8] Setting up deployvtc...${NC}"
+cd /root/deployvtc
 
 # Backend dependencies
 npm install
 
 # Frontend build
 echo -e "${YELLOW}Building frontend...${NC}"
-cd /root/vitacimin-deploy/frontend
+cd /root/deployvtc/frontend
 npm install
 npm run build
-cd /root/vitacimin-deploy
+cd /root/deployvtc
 echo -e "${GREEN}Frontend built!${NC}"
 
 # Create directories
 mkdir -p /root/data
-mkdir -p /root/vitacimin-deploy/uploads
+mkdir -p /root/deployvtc/uploads
 
 # Interactive .env setup
 if [ -f ".env" ]; then
@@ -258,10 +258,10 @@ else
 fi
 
 # ==================== START ====================
-echo -e "${YELLOW}Starting vitacimin-deploy...${NC}"
+echo -e "${YELLOW}Starting deployvtc...${NC}"
 
-pm2 delete vitacimin-deploy 2>/dev/null || true
-pm2 start src/index.js --name vitacimin-deploy
+pm2 delete deployvtc 2>/dev/null || true
+pm2 start src/index.js --name deployvtc
 pm2 save
 pm2 startup systemd -u root --hp /root 2>/dev/null || true
 
@@ -285,8 +285,8 @@ echo "║  🐳 Docker Image: store-bot                  ║"
 echo "║  📁 Data: /root/data                         ║"
 echo "║                                              ║"
 echo "║  📋 Commands:                                ║"
-echo "║  pm2 logs vitacimin-deploy                   ║"
-echo "║  pm2 restart vitacimin-deploy                ║"
+echo "║  pm2 logs deployvtc                          ║"
+echo "║  pm2 restart deployvtc                      ║"
 echo "║                                              ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${NC}"

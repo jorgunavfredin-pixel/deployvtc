@@ -1,0 +1,8 @@
+node_modules/
+frontend/node_modules/
+uploads/
+.env
+deploy.db
+deploy.db-shm
+deploy.db-wal
+*.log

@@ -50,6 +50,32 @@ const deployBot = async (config) => {
             }
         }
 
+        // Copy QRIS preset terpilih ke buyer assets (biar container punya preset)
+        // Preset source: folder presets di repo vitaicmin (atau env QRIS_PRESET_DIR)
+        // Bot membaca preset dari assets/qris-custom/presets/ — nama file = id preset,
+        // jadi harus copy dengan nama file ASLI (qris-1.png, dst), bukan rename.
+        const presetSourceDir = process.env.QRIS_PRESET_DIR || '/root/vitaicmin/assets/qris-custom/presets';
+        const themePresetId = envVars.THEME_PRESET || '';
+        if (themePresetId && fs.existsSync(presetSourceDir)) {
+            const presetExts = ['.png', '.jpg', '.jpeg', '.webp'];
+            const destPresetDir = path.join(buyerDir, 'assets', 'qris-custom', 'presets');
+            fs.mkdirSync(destPresetDir, { recursive: true });
+            let copied = false;
+            for (const ext of presetExts) {
+                const src = path.join(presetSourceDir, `${themePresetId}${ext}`);
+                if (fs.existsSync(src)) {
+                    fs.copyFileSync(src, path.join(destPresetDir, `${themePresetId}${ext}`));
+                    copied = true;
+                    break;
+                }
+            }
+            if (!copied) {
+                // Fallback: copy semua preset yang ada di source biar bot bisa pilih
+                const files = fs.readdirSync(presetSourceDir).filter(f => presetExts.includes(path.extname(f).toLowerCase()));
+                for (const f of files) fs.copyFileSync(path.join(presetSourceDir, f), path.join(destPresetDir, f));
+            }
+        }
+
         // Create and start container
         const container = await docker.createContainer({
             Image: TEMPLATE_IMAGE,

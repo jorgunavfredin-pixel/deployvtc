@@ -109,6 +109,21 @@ function LicenseStep({ onValid }) {
 }
 
 // ==================== STEP 2: CONFIG ====================
+function FieldSection({ icon, title, desc, children }) {
+    return (
+        <div className="field-section">
+            <div className="field-section-head">
+                <span className="field-section-icon">{icon}</span>
+                <div>
+                    <div className="field-section-title">{title}</div>
+                    {desc && <div className="field-section-desc">{desc}</div>}
+                </div>
+            </div>
+            <div className="field-section-body">{children}</div>
+        </div>
+    )
+}
+
 function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [form, setForm] = useState({
         botToken: '', adminId: '', storeName: '', orderPrefix: 'ORD',
@@ -130,6 +145,8 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [provider, setProvider] = useState('')
     const [qrisPresets, setQrisPresets] = useState([])
     const [selectedPreset, setSelectedPreset] = useState(null)
+    const [showAdminPass, setShowAdminPass] = useState(false)
+    const [presetLoaded, setPresetLoaded] = useState(false)
 
     useEffect(() => {
         // Ambil daftar preset QRIS dari backend
@@ -140,6 +157,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                     setQrisPresets(d.presets)
                     setForm(prev => ({ ...prev, themePreset: prev.themePreset || d.presets[0].id }))
                     setSelectedPreset(d.presets[0])
+                    setPresetLoaded(false)
                 }
             })
             .catch(() => { })
@@ -259,48 +277,68 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
 
             {error && <div className="alert alert-error">❌ {error}</div>}
 
-            <div className="form-group">
-                <label className="form-label">Bot Token *</label>
-                <input className="form-input" placeholder="1234567890:ABCDefGHIJKLMNopqrstUVWXyz" value={form.botToken} onChange={set('botToken')} />
-                <span className="form-hint">Dapatkan dari @BotFather di Telegram</span>
-            </div>
-
-            <div className="form-group">
-                <label className="form-label">Admin Telegram ID *</label>
-                <input className="form-input" placeholder="1234567890" value={form.adminId} onChange={set('adminId')} />
-                <span className="form-hint">Dapatkan dari @userinfobot di Telegram</span>
-            </div>
-
-            <div className="form-row">
+            <FieldSection icon="🤖" title="Identitas Bot" desc="Koneksi ke Telegram & identitas toko">
                 <div className="form-group">
-                    <label className="form-label">Store Name *</label>
-                    <input className="form-input" placeholder="NamaTokoKamu" value={form.storeName} onChange={set('storeName')} maxLength={30} />
+                    <label className="form-label">Bot Token *</label>
+                    <input className="form-input" placeholder="1234567890:ABCDefGHIJKLMNopqrstUVWXyz" value={form.botToken} onChange={set('botToken')} />
+                    <span className="form-hint">Dapatkan dari @BotFather di Telegram</span>
                 </div>
+
                 <div className="form-group">
-                    <label className="form-label">Format ID Pesanan *</label>
-                    <input className="form-input" placeholder="ORD" value={form.orderPrefix} onChange={set('orderPrefix')} maxLength={5} />
+                    <label className="form-label">Admin Telegram ID *</label>
+                    <input className="form-input" placeholder="1234567890" value={form.adminId} onChange={set('adminId')} />
+                    <span className="form-hint">Dapatkan dari @userinfobot di Telegram</span>
                 </div>
-            </div>
+
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">Store Name *</label>
+                        <input className="form-input" placeholder="NamaTokoKamu" value={form.storeName} onChange={set('storeName')} maxLength={30} />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Format ID Pesanan *</label>
+                        <input className="form-input" placeholder="ORD" value={form.orderPrefix} onChange={set('orderPrefix')} maxLength={5} />
+                    </div>
+                </div>
+            </FieldSection>
 
             {tier !== 'chat' && (
-                <div className="form-group">
-                    <label className="form-label">Admin Panel Password *</label>
-                    <input className="form-input" type="password" placeholder="Password untuk akses panel admin" value={form.adminPanelPassword} onChange={set('adminPanelPassword')} />
-                    <span className="form-hint">Dipakai login di {`${window.location.origin}/admin`} setelah deploy</span>
-                </div>
+                <FieldSection icon="🔐" title="Admin Panel" desc="Akses dashboard web /admin">
+                    <div className="form-group">
+                        <label className="form-label">Admin Panel Password *</label>
+                        <div className="password-wrap">
+                            <input
+                                className="form-input"
+                                type={showAdminPass ? 'text' : 'password'}
+                                placeholder="Password untuk akses panel admin"
+                                value={form.adminPanelPassword}
+                                onChange={set('adminPanelPassword')}
+                            />
+                            <button
+                                type="button"
+                                className="password-toggle"
+                                onClick={() => setShowAdminPass(v => !v)}
+                                aria-label={showAdminPass ? 'Sembunyikan password' : 'Tampilkan password'}
+                            >
+                                {showAdminPass ? '🙈' : '👁️'}
+                            </button>
+                        </div>
+                        <span className="form-hint">Dipakai login di {`${window.location.origin}/admin`} setelah deploy</span>
+                    </div>
+                </FieldSection>
             )}
 
-            <div className="form-group">
-                <label className="form-label">Payment Gateway *</label>
-                <select className="form-input" value={provider} onChange={changeProvider}>
-                    <option value="">— Pilih Payment Gateway —</option>
-                    <option value="pakasir">PaKasir</option>
-                    <option value="wijayapay">WijayaPay</option>
-                    <option value="xoftware">Xoftware Pay</option>
-                    <option value="klikqris">KlikQRIS</option>
-                </select>
-                <span className="form-hint">Pilih 1 gateway untuk pembayaran QRIS bot. Bisa ditambah lagi dari Admin Panel setelah deploy.</span>
-            </div>
+            <FieldSection icon="💳" title="Payment Gateway" desc="Pilih 1 gateway QRIS (bisa ditambah dari Admin Panel nanti)">
+                <div className="form-group">
+                    <label className="form-label">Payment Gateway *</label>
+                    <select className="form-input" value={provider} onChange={changeProvider}>
+                        <option value="">— Pilih Payment Gateway —</option>
+                        <option value="pakasir">PaKasir</option>
+                        <option value="wijayapay">WijayaPay</option>
+                        <option value="xoftware">Xoftware Pay</option>
+                        <option value="klikqris">KlikQRIS</option>
+                    </select>
+                </div>
 
             {provider === 'pakasir' && (
                 <div className="form-row">
@@ -373,62 +411,77 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </div>
             )}
 
-            <div className="form-row">
-                <div className="form-group">
-                    <label className="form-label">Support Username *</label>
-                    <input className="form-input" placeholder="username_telegram" value={form.supportUsername} onChange={set('supportUsername')} />
-                    <span className="form-hint">Tanpa "@"</span>
-                </div>
-                <div className="form-group">
-                    <label className="form-label">Support Hours *</label>
-                    <input className="form-input" placeholder="09:00 - 23:00 WIB" value={form.supportHours} onChange={set('supportHours')} />
-                </div>
-            </div>
+            </FieldSection>
 
-            <div className="form-group">
-                <label className="form-label">Theme QRIS *</label>
-                {qrisPresets.length === 0 ? (
-                    <div className="form-hint">Memuat preset QRIS...</div>
-                ) : (
-                    <>
-                        <select
-                            className="form-input"
-                            value={form.themePreset}
-                            onChange={e => {
-                                const id = e.target.value
-                                setForm(prev => ({ ...prev, themePreset: id }))
-                                setSelectedPreset(qrisPresets.find(p => p.id === id) || null)
-                            }}
-                        >
-                            {qrisPresets.map(p => (
-                                <option key={p.id} value={p.id}>{p.id}</option>
-                            ))}
-                        </select>
-                        {selectedPreset && (
-                            <div className="preset-preview-wrap">
-                                <img
-                                    src={`/api/qris-preset-preview/${encodeURIComponent(selectedPreset.id)}`}
-                                    alt={selectedPreset.id}
-                                    className="preset-preview-img"
-                                />
-                                <div className="preset-preview-label">{selectedPreset.id}</div>
-                            </div>
-                        )}
-                    </>
-                )}
-                <span className="form-hint">Pilih frame QRIS untuk invoice pembayaran bot kamu.</span>
-            </div>
+            <FieldSection icon="🎨" title="Tampilan" desc="Theme QRIS & banner toko">
+                <div className="form-group">
+                    <label className="form-label">Theme QRIS *</label>
+                    {qrisPresets.length === 0 ? (
+                        <div className="form-hint">Memuat preset QRIS...</div>
+                    ) : (
+                        <>
+                            <select
+                                className="form-input"
+                                value={form.themePreset}
+                                onChange={e => {
+                                    const id = e.target.value
+                                    setForm(prev => ({ ...prev, themePreset: id }))
+                                    setSelectedPreset(qrisPresets.find(p => p.id === id) || null)
+                                    setPresetLoaded(false)
+                                }}
+                            >
+                                {qrisPresets.map(p => (
+                                    <option key={p.id} value={p.id}>{p.id}</option>
+                                ))}
+                            </select>
+                            {selectedPreset && (
+                                <div className="preset-preview-wrap">
+                                    {!presetLoaded && (
+                                        <div className="preset-preview-loading">
+                                            <span className="spinner" style={{ width: 22, height: 22, borderWidth: 3 }} />
+                                            <span>Memuat preview...</span>
+                                        </div>
+                                    )}
+                                    <img
+                                        src={`/api/qris-preset-preview/${encodeURIComponent(selectedPreset.id)}`}
+                                        alt={selectedPreset.id}
+                                        className={`preset-preview-img ${presetLoaded ? 'loaded' : 'loading'}`}
+                                        onLoad={() => setPresetLoaded(true)}
+                                        onError={() => setPresetLoaded(true)}
+                                    />
+                                    <div className="preset-preview-label">{selectedPreset.id}</div>
+                                </div>
+                            )}
+                        </>
+                    )}
+                    <span className="form-hint">Pilih frame QRIS untuk invoice pembayaran bot kamu.</span>
+                </div>
 
-            <div className="form-group file-upload">
-                <label className="form-label">Banner Toko * (opsional gambar)</label>
-                <input
-                    className="form-input"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    onChange={e => setBanner(e.target.files[0])}
-                />
-                <span className="form-hint">PNG/JPG/WebP/GIF, maks 5MB. Tampil saat /start. Bisa di-nonaktifkan dari Admin Panel.</span>
-            </div>
+                <div className="form-group file-upload">
+                    <label className="form-label">Banner Toko * (opsional gambar)</label>
+                    <input
+                        className="form-input"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        onChange={e => setBanner(e.target.files[0])}
+                    />
+                    <span className="form-hint">PNG/JPG/WebP/GIF, maks 5MB. Tampil saat /start. Bisa di-nonaktifkan dari Admin Panel.</span>
+                </div>
+            </FieldSection>
+
+            <FieldSection icon="🛟" title="Support" desc="Info kontak bantuan untuk buyer">
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">Support Username *</label>
+                        <input className="form-input" placeholder="username_telegram" value={form.supportUsername} onChange={set('supportUsername')} />
+                        <span className="form-hint">Tanpa "@"</span>
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Support Hours *</label>
+                        <input className="form-input" placeholder="09:00 - 23:00 WIB" value={form.supportHours} onChange={set('supportHours')} />
+                    </div>
+                </div>
+            </FieldSection>
 
             <button
                 className="btn btn-primary btn-lg btn-full"
@@ -524,10 +577,10 @@ function ResultStep({ data, licenseKey, tier }) {
                 )}
                 <div className="result-item">
                     <span className="result-label">Webhook URL(s)</span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', alignItems: 'flex-end' }}>
                         {(data.webhooks || []).map(w => (
-                            <div key={w.provider} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                <span className="result-value" style={{ fontSize: '0.8rem' }}>{w.provider}: {w.url}</span>
+                            <div key={w.provider} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                <span className="result-value" style={{ fontSize: '0.8rem' }}>{w.url}</span>
                                 <button className="copy-btn" onClick={() => navigator.clipboard.writeText(w.url)}><Copy size={12} /> Copy</button>
                             </div>
                         ))}

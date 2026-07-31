@@ -52,12 +52,14 @@ function LicenseStep({ onValid }) {
     const [key, setKey] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [info, setInfo] = useState(null)
 
     const validate = async () => {
         const k = key.trim().toUpperCase()
         if (!k) return setError('Masukkan license key.')
         setLoading(true)
         setError('')
+        setInfo(null)
 
         try {
             const res = await fetch('/api/validate-license', {
@@ -67,7 +69,7 @@ function LicenseStep({ onValid }) {
             })
             const data = await res.json()
             if (data.valid) {
-                onValid(k)
+                setInfo({ buyer: data.buyer_name, tier: data.tier || 'full' })
             } else {
                 setError(data.reason || 'License tidak valid.')
             }
@@ -105,6 +107,13 @@ function LicenseStep({ onValid }) {
                 />
             </div>
 
+            {info && (
+                <div className="alert" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '0.75rem' }}>
+                    <div><strong>👤 {info.buyer}</strong></div>
+                    <div>Tier: {info.tier === 'chat' ? '🔵 Chat saja (tanpa web admin)' : '🟢 Full (Web + Chat)'}</div>
+                </div>
+            )}
+
             <button
                 className="btn btn-primary btn-lg btn-full"
                 onClick={validate}
@@ -112,12 +121,22 @@ function LicenseStep({ onValid }) {
             >
                 {loading ? <><span className="spinner" /> Validating...</> : <><CheckCircle size={18} /> Validasi License</>}
             </button>
+
+            {info && (
+                <button
+                    className="btn btn-outline btn-full"
+                    style={{ marginTop: '0.75rem' }}
+                    onClick={() => onValid(key, info.tier || 'full')}
+                >
+                    Lanjut ke Konfigurasi →
+                </button>
+            )}
         </motion.div>
     )
 }
 
 // ==================== STEP 2: CONFIG ====================
-function ConfigStep({ licenseKey, onDeploy }) {
+function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [form, setForm] = useState({
         botToken: '', adminId: '', storeName: '', orderPrefix: 'ORD',
         adminPanelPassword: '', supportUsername: '',
@@ -142,8 +161,11 @@ function ConfigStep({ licenseKey, onDeploy }) {
 
     const deploy = async () => {
         const { botToken, adminId, storeName, adminPanelPassword, supportUsername } = form
-        if (!botToken || !adminId || !storeName || !adminPanelPassword || !supportUsername) {
-            return setError('Field wajib (bot token, admin id, nama toko, password admin, support username) harus diisi.')
+        if (!botToken || !adminId || !storeName || !supportUsername) {
+            return setError('Field wajib (bot token, admin id, nama toko, support username) harus diisi.')
+        }
+        if (tier === 'full' && !adminPanelPassword) {
+            return setError('License tier FULL memerlukan Admin Panel Password.')
         }
         const hasGateway =
             (form.pakasirApiKey && form.pakasirSlug) ||
@@ -226,6 +248,9 @@ function ConfigStep({ licenseKey, onDeploy }) {
             <div className="deploy-header">
                 <h1><Settings size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem' }} />Konfigurasi Bot</h1>
                 <p>Isi data di bawah untuk setup bot kamu.</p>
+                <div className="alert" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8, padding: '0.5rem 0.9rem', marginTop: '0.5rem', display: 'inline-block' }}>
+                    {tier === 'chat' ? '🔵 Tier: Chat saja (tanpa web admin)' : '🟢 Tier: Full (Web + Chat)'}
+                </div>
             </div>
 
             {error && <div className="alert alert-error">❌ {error}</div>}
@@ -253,11 +278,13 @@ function ConfigStep({ licenseKey, onDeploy }) {
                 </div>
             </div>
 
-            <div className="form-group">
-                <label className="form-label">Admin Panel Password *</label>
-                <input className="form-input" type="password" placeholder="Password untuk akses panel admin" value={form.adminPanelPassword} onChange={set('adminPanelPassword')} />
-                <span className="form-hint">Dipakai login di {`${window.location.origin}/admin`} setelah deploy</span>
-            </div>
+            {tier !== 'chat' && (
+                <div className="form-group">
+                    <label className="form-label">Admin Panel Password *</label>
+                    <input className="form-input" type="password" placeholder="Password untuk akses panel admin" value={form.adminPanelPassword} onChange={set('adminPanelPassword')} />
+                    <span className="form-hint">Dipakai login di {`${window.location.origin}/admin`} setelah deploy</span>
+                </div>
+            )}
 
             <div className="form-group">
                 <label className="form-label">Payment Gateway QRIS * (isi minimal satu)</label>
@@ -494,10 +521,12 @@ function ResultStep({ data, licenseKey }) {
 export default function Deploy() {
     const [step, setStep] = useState(1)
     const [licenseKey, setLicenseKey] = useState('')
+    const [licenseTier, setLicenseTier] = useState('full')
     const [deployData, setDeployData] = useState(null)
 
-    const handleLicenseValid = (key) => {
+    const handleLicenseValid = (key, tier) => {
         setLicenseKey(key)
+        setLicenseTier(tier || 'full')
         setStep(2)
     }
 
@@ -515,7 +544,7 @@ export default function Deploy() {
 
                     <AnimatePresence mode="wait">
                         {step === 1 && <LicenseStep key="s1" onValid={handleLicenseValid} />}
-                        {step === 2 && <ConfigStep key="s2" licenseKey={licenseKey} onDeploy={handleDeploy} />}
+                        {step === 2 && <ConfigStep key="s2" licenseKey={licenseKey} tier={licenseTier} onDeploy={handleDeploy} />}
                         {step === 3 && <ResultStep key="s3" data={deployData} licenseKey={licenseKey} />}
                     </AnimatePresence>
                 </div>

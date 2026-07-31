@@ -130,7 +130,35 @@ const initBot = () => {
         if (pending?.type === 'buyer_name') {
             pendingInput.delete(userId);
             const buyerName = ctx.message.text.trim();
-            const license = db.createLicense(buyerName, '');
+            // Ask for tier
+            pendingInput.set(userId, { type: 'license_tier', buyerName });
+            await ctx.reply(
+                `👤 Buyer: *${escMd(buyerName)}*\n\n` +
+                `Pilih tier license:\n\n` +
+                `🟢 *full* — Admin Web + Admin Chat Bot (fitur lengkap)\n` +
+                `🔵 *chat* — Admin Chat Bot saja (tanpa web)\n\n` +
+                `Ketik \`full\` atau \`chat\`:`,
+                {
+                    parse_mode: 'Markdown',
+                    ...Markup.inlineKeyboard([
+                        [Markup.button.callback('🟢 Full (Web + Chat)', 'lic_tier_full')],
+                        [Markup.button.callback('🔵 Chat saja', 'lic_tier_chat')],
+                        [Markup.button.callback('❌ Cancel', 'menu_license')]
+                    ])
+                }
+            );
+            return;
+        }
+
+        if (pending?.type === 'license_tier') {
+            const input = ctx.message.text.trim().toLowerCase();
+            if (input !== 'full' && input !== 'chat') {
+                await ctx.reply('❌ Ketik `full` atau `chat` saja.', { parse_mode: 'Markdown' });
+                return;
+            }
+            pendingInput.delete(userId);
+            const { buyerName } = pending;
+            const license = db.createLicense(buyerName, '', input);
 
             await ctx.reply(
                 `🎉 *Terima kasih atas pembeliannya, ${buyerName}!*\n\n` +
@@ -242,6 +270,50 @@ const initBot = () => {
         }
     });
 
+    // Tier selected via inline buttons
+    const finishCreateLicense = async (ctx, tier) => {
+        const userId = ctx.from.id.toString();
+        const pending = pendingInput.get(userId);
+        if (!pending || pending.type !== 'license_tier') {
+            await ctx.answerCbQuery('Session tidak ditemukan. Coba lagi.');
+            return;
+        }
+        pendingInput.delete(userId);
+        const { buyerName } = pending;
+        const license = db.createLicense(buyerName, '', tier);
+
+        const tierLabel = tier === 'chat' ? '🔵 Chat saja' : '🟢 Full (Web + Chat)';
+        await ctx.answerCbQuery();
+        await ctx.reply(
+            `🎉 *Terima kasih atas pembeliannya, ${buyerName}!*\n\n` +
+            `🔑 *License Key Kamu:*\n\`${license.key}\`\n\n` +
+            `🎛 *Tier:* ${tierLabel}\n\n` +
+            `━━━━━━━━━━━━━━━━━━\n\n` +
+            `📋 *Cara Deploy Bot:*\n\n` +
+            `1️⃣ *Siapkan dulu:*\n` +
+            `• 🤖 Bot Token → buat di @BotFather\n` +
+            `• 🆔 Telegram ID → cek di @userinfobot\n` +
+            `• 🏪 Nama Toko (maks 30 karakter)\n` +
+            `• 📝 Format ID Pesanan (misal: ORD, INV)\n` +
+            `• 💳 API Key Payment Gateway (PaKasir/WijayaPay/Xoftware/KlikQRIS)\n` +
+            `• 🖼 Banner Toko (PNG/JPG, maks 2MB)\n\n` +
+            `2️⃣ *Buka link deploy:*\n` +
+            `🌐 ${/^\d/.test(process.env.VPS_IP || '') ? 'http://' + process.env.VPS_IP + ':' + (process.env.PORT || '800') : 'https://' + process.env.VPS_IP}/\n` +
+            `3️⃣ Masukkan License Key + data di atas, klik *Deploy!*\n\n` +
+            `⏳ Tunggu 1-2 menit, bot kamu siap dipakai ✨\n` +
+            `Kalo masih bingung tanyakan langsung ya 💬`,
+            {
+                parse_mode: 'Markdown',
+                ...Markup.inlineKeyboard([
+                    [Markup.button.callback('➕ Create Another', 'lic_create')],
+                    [Markup.button.callback('◀ Back', 'menu_license')]
+                ])
+            }
+        );
+    };
+    bot.action('lic_tier_full', (ctx) => finishCreateLicense(ctx, 'full'));
+    bot.action('lic_tier_chat', (ctx) => finishCreateLicense(ctx, 'chat'));
+
     // List Licenses by status
     const showLicenseList = async (ctx, filter) => {
         await ctx.answerCbQuery();
@@ -260,9 +332,10 @@ const initBot = () => {
 
         licenses.slice(0, 10).forEach((lic, i) => {
             const icon = lic.status === 'unused' ? '🟢' : lic.status === 'used' ? '🔵' : '🔴';
+            const tierTag = lic.tier === 'chat' ? '🔵 chat' : '🟢 full';
             const name = escMd(lic.buyer_name || 'Unknown');
-            msg += `${i + 1}. ${icon} *${name}*\n   \`${lic.key.slice(0, 9)}...\`\n\n`;
-            buttons.push([Markup.button.callback(`${icon} ${name} — ${lic.key.slice(0, 9)}...`, `lic_detail_${lic.id}`)]);
+            msg += `${i + 1}. ${icon} *${name}* [${tierTag}]\n   \`${lic.key.slice(0, 9)}...\`\n\n`;
+            buttons.push([Markup.button.callback(`${icon} ${name} [${tierTag}] — ${lic.key.slice(0, 9)}...`, `lic_detail_${lic.id}`)]);
         });
 
         buttons.push([Markup.button.callback('◀ Back', 'menu_license')]);
@@ -283,14 +356,17 @@ const initBot = () => {
         if (!lic) return ctx.editMessageText('❌ License not found.');
 
         const statusIcon = lic.status === 'unused' ? '🟢' : lic.status === 'used' ? '🔵' : '🔴';
+        const tierLabel = lic.tier === 'chat' ? '🔵 Chat saja (tanpa web)' : '🟢 Full (Web + Chat)';
 
         let msg = `🔐 *License Detail*\n\n`;
         msg += `👤 Buyer: *${escMd(lic.buyer_name || '-')}*\n`;
+        msg += `🎛 Tier: ${tierLabel}\n`;
         msg += `📊 Status: ${statusIcon} ${lic.status.toUpperCase()}\n`;
         msg += `📅 Created: ${lic.created_at?.slice(0, 10)}\n`;
         msg += `🔑 Key:\n\`${lic.key}\`\n`;
 
         const buttons = [];
+        buttons.push([Markup.button.callback('🔄 Upgrade/Downgrade', `lic_tier_change_${lic.id}`)]);
 
         // If used, show deployment actions
         if (lic.status === 'used') {
@@ -323,6 +399,62 @@ const initBot = () => {
 
         buttons.push([Markup.button.callback('◀ Back', 'menu_license')]);
         await ctx.editMessageText(msg, { parse_mode: 'Markdown', ...Markup.inlineKeyboard(buttons) });
+    });
+
+    // Upgrade/Downgrade tier
+    bot.action(/^lic_tier_change_(\d+)$/, async (ctx) => {
+        await ctx.answerCbQuery();
+        const licId = parseInt(ctx.match[1]);
+        const lic = db.getLicenseByKey((db.getLicenses().find(l => l.id === licId) || {}).key);
+        if (!lic) return ctx.editMessageText('❌ License not found.');
+
+        const current = lic.tier === 'chat' ? '🔵 Chat saja' : '🟢 Full';
+        await ctx.editMessageText(
+            `🔄 *Ubah Tier License*\n\n` +
+            `👤 ${escMd(lic.buyer_name || '-')}\n` +
+            `🎛 Sekarang: ${current}\n\n` +
+            `Pilih tier baru:`,
+            {
+                parse_mode: 'Markdown',
+                ...Markup.inlineKeyboard([
+                    [Markup.button.callback('🟢 Full (Web + Chat)', `lic_tier_set_${licId}_full`)],
+                    [Markup.button.callback('🔵 Chat saja (tanpa web)', `lic_tier_set_${licId}_chat`)],
+                    [Markup.button.callback('◀ Back', `lic_detail_${licId}`)]
+                ])
+            }
+        );
+    });
+
+    // Set tier
+    bot.action(/^lic_tier_set_(\d+)_(full|chat)$/, async (ctx) => {
+        await ctx.answerCbQuery();
+        const licId = parseInt(ctx.match[1]);
+        const tier = ctx.match[2];
+        const lic = db.getLicenseByKey((db.getLicenses().find(l => l.id === licId) || {}).key);
+        if (!lic) return;
+
+        const updated = db.updateLicenseTier(licId, tier);
+        const label = updated.tier === 'chat' ? '🔵 Chat saja' : '🟢 Full';
+
+        // Kalau sudah deployed, otomatis rebuild biar env baru berlaku
+        let rebuildMsg = '';
+        if (lic.status === 'used') {
+            const dep = db.getDeploymentByLicense(lic.key);
+            if (dep) {
+                const r = await dockerEngine.rebuildBot(dep.container_name);
+                rebuildMsg = r.success
+                    ? `\n\n🔄 Container di-rebuild dengan tier baru (data aman).`
+                    : `\n\n⚠️ Gagal rebuild: ${r.error}`;
+            }
+        }
+
+        await ctx.editMessageText(
+            `✅ Tier license diubah ke ${label}${rebuildMsg}`,
+            {
+                parse_mode: 'Markdown',
+                ...Markup.inlineKeyboard([[Markup.button.callback('◀ Back', `lic_detail_${licId}`)]])
+            }
+        );
     });
 
     // Revoke License

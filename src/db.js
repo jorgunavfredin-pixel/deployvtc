@@ -13,6 +13,7 @@ db.exec(`
     key TEXT UNIQUE NOT NULL,
     buyer_name TEXT,
     telegram_id TEXT,
+    tier TEXT DEFAULT 'full',
     status TEXT DEFAULT 'unused',
     created_at TEXT,
     used_at TEXT
@@ -39,6 +40,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_dep_port ON deployments(port);
 `);
 
+// Migration: tambah kolom tier ke licenses (Fase 1 — full/chat)
+try {
+  db.prepare('SELECT tier FROM licenses LIMIT 1').get();
+} catch (e) {
+  db.exec("ALTER TABLE licenses ADD COLUMN tier TEXT DEFAULT 'full'");
+  console.log('[DB] Added tier column to licenses');
+}
+
 // ==================== LICENSE ====================
 
 const generateLicenseKey = () => {
@@ -51,12 +60,13 @@ const generateLicenseKey = () => {
     return key.match(/.{4}/g).join('-');
 };
 
-const createLicense = (buyerName = '', telegramId = '') => {
+const createLicense = (buyerName = '', telegramId = '', tier = 'full') => {
     const key = generateLicenseKey();
     const created_at = new Date().toISOString();
-    db.prepare('INSERT INTO licenses (key, buyer_name, telegram_id, status, created_at) VALUES (?, ?, ?, ?, ?)')
-        .run(key, buyerName, telegramId, 'unused', created_at);
-    return { key, buyer_name: buyerName, telegram_id: telegramId, status: 'unused', created_at };
+    const validTier = tier === 'chat' ? 'chat' : 'full';
+    db.prepare('INSERT INTO licenses (key, buyer_name, telegram_id, tier, status, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(key, buyerName, telegramId, validTier, 'unused', created_at);
+    return { key, buyer_name: buyerName, telegram_id: telegramId, tier: validTier, status: 'unused', created_at };
 };
 
 const validateLicense = (key) => {
@@ -76,6 +86,12 @@ const revokeLicense = (key) => {
     db.prepare('UPDATE licenses SET status = ? WHERE key = ?').run('revoked', key);
 };
 
+const updateLicenseTier = (id, tier) => {
+    const validTier = tier === 'chat' ? 'chat' : 'full';
+    db.prepare('UPDATE licenses SET tier = ? WHERE id = ?').run(validTier, id);
+    return db.prepare('SELECT * FROM licenses WHERE id = ?').get(id);
+};
+
 const getLicenses = () => {
     return db.prepare('SELECT * FROM licenses ORDER BY created_at DESC').all();
 };
@@ -88,6 +104,9 @@ const getLicenseStats = () => {
     const all = db.prepare('SELECT status, COUNT(*) as count FROM licenses GROUP BY status').all();
     const stats = { total: 0, unused: 0, used: 0, revoked: 0 };
     all.forEach(r => { stats[r.status] = r.count; stats.total += r.count; });
+    const tiers = db.prepare("SELECT tier, COUNT(*) as count FROM licenses GROUP BY tier").all();
+    stats.full = tiers.find(t => t.tier === 'full')?.count || 0;
+    stats.chat = tiers.find(t => t.tier === 'chat')?.count || 0;
     return stats;
 };
 
@@ -184,6 +203,7 @@ module.exports = {
     validateLicense,
     markLicenseUsed,
     revokeLicense,
+    updateLicenseTier,
     getLicenses,
     getLicenseByKey,
     getLicenseStats,

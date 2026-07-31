@@ -54,7 +54,7 @@ router.post('/api/validate-license', validateLimiter, (req, res) => {
 
     const result = db.validateLicense(key.trim().toUpperCase());
     if (result.valid && result.license) {
-        res.json({ valid: true, buyer_name: result.license.buyer_name });
+        res.json({ valid: true, buyer_name: result.license.buyer_name, tier: result.license.tier || 'full' });
     } else {
         res.json(result);
     }
@@ -107,6 +107,7 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
         if (!licenseCheck.valid) {
             return res.status(400).json({ success: false, error: licenseCheck.reason });
         }
+        const tier = licenseCheck.license.tier || 'full';
 
         // Check max deployments
         const runningCount = db.getRunningCount();
@@ -115,8 +116,12 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
         }
 
         // Validate required fields
-        if (!bot_token || !admin_id || !store_name || !support_username || !admin_panel_password) {
-            return res.status(400).json({ success: false, error: 'Field wajib (bot token, admin id, nama toko, support username, password admin) harus diisi.' });
+        if (!bot_token || !admin_id || !store_name || !support_username) {
+            return res.status(400).json({ success: false, error: 'Field wajib (bot token, admin id, nama toko, support username) harus diisi.' });
+        }
+        // Admin Panel Password hanya wajib untuk tier 'full'
+        if (tier === 'full' && !admin_panel_password) {
+            return res.status(400).json({ success: false, error: 'License tier FULL memerlukan Admin Panel Password.' });
         }
 
         // Minimal satu payment gateway QRIS wajib terisi
@@ -144,8 +149,11 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             ORDER_PREFIX: (order_prefix || 'ORD').trim(),
             SUPPORT_HOURS: (support_hours || '09:00 - 23:00 WIB').trim(),
             THEME_PRESET: (theme_preset || 'gold').toLowerCase(),
-            // Admin panel (wajib biar buyer bisa akses /admin)
-            ADMIN_PANEL_PASSWORD: admin_panel_password.trim(),
+            // Admin panel: hanya di-set untuk tier 'full'. Tier 'chat' tanpa
+            // password → panel /admin nonaktif (backend bot mewajibkan password).
+            ...(tier === 'full' && admin_panel_password
+                ? { ADMIN_PANEL_PASSWORD: admin_panel_password.trim() }
+                : {}),
             // PaKasir
             PAKASIR_API_KEY: (pakasir_api_key || '').trim(),
             PAKASIR_SLUG: (pakasir_slug || '').trim(),

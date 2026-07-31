@@ -131,16 +131,30 @@ fi
 
 # Clone if not exists
 if [ ! -d "/root/vitaicmin" ] || [ ! -d "/root/deployvtc" ]; then
+    # Coba clone public dulu (tanpa token). Kalau repo sudah private, git akan
+    # gagal → baru minta PAT token.
     echo ""
-    echo "GitHub PAT token (untuk clone private repo):"
-    read -p "> " GH_TOKEN
-    while [ -z "$GH_TOKEN" ]; do
-        echo -e "${RED}Token wajib diisi!${NC}"
-        read -p "> " GH_TOKEN
-    done
+    echo "Mencoba clone public (tanpa token)..."
+    if [ ! -d "/root/vitaicmin" ]; then
+        git clone https://github.com/jorgunavfredin-pixel/vitaicmin.git && echo -e "${GREEN}✓ vitaicmin cloned${NC}" || echo -e "${RED}✗ gagal (kemungkinan repo private)${NC}"
+    fi
+    if [ ! -d "/root/deployvtc" ]; then
+        git clone https://github.com/jorgunavfredin-pixel/deployvtc.git && echo -e "${GREEN}✓ deployvtc cloned${NC}" || echo -e "${RED}✗ gagal (kemungkinan repo private)${NC}"
+    fi
 
-    [ ! -d "/root/vitaicmin" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/vitaicmin.git
-    [ ! -d "/root/deployvtc" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/deployvtc.git
+    # Kalau masih ada yang belum ter-clone, minta PAT token
+    if [ ! -d "/root/vitaicmin" ] || [ ! -d "/root/deployvtc" ]; then
+        echo ""
+        echo "GitHub PAT token (untuk clone private repo):"
+        read -p "> " GH_TOKEN
+        while [ -z "$GH_TOKEN" ]; do
+            echo -e "${RED}Token wajib diisi!${NC}"
+            read -p "> " GH_TOKEN
+        done
+
+        [ ! -d "/root/vitaicmin" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/vitaicmin.git
+        [ ! -d "/root/deployvtc" ] && git clone https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/deployvtc.git
+    fi
 fi
 
 # ==================== STEP 6: Build Docker Image ====================

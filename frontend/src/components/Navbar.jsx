@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Rocket } from 'lucide-react'
+import { Rocket, RefreshCw } from 'lucide-react'
 import { LogoIcon } from './Logo'
 
 export default function Navbar() {
@@ -27,6 +27,10 @@ export default function Navbar() {
                         <a href="#how" className="hide-mobile">How It Works</a>
                     </>
                 )}
+                <Link to="/renew" className="btn btn-outline btn-sm nav-deploy-btn" style={{ marginRight: '0.5rem' }}>
+                    <RefreshCw size={15} />
+                    <span className="nav-deploy-text">Perpanjang</span>
+                </Link>
                 <Link to="/deploy" className="btn btn-primary btn-sm nav-deploy-btn">
                     <Rocket size={16} />
                     <span className="nav-deploy-text">Deploy Bot</span>

@@ -35,9 +35,22 @@ db.exec(`
     FOREIGN KEY (license_id) REFERENCES licenses(id)
   );
 
+  CREATE TABLE IF NOT EXISTS renewals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    license_key TEXT,
+    order_id TEXT UNIQUE,
+    amount INTEGER DEFAULT 0,
+    duration_days INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT,
+    paid_at TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS idx_lic_key ON licenses(key);
   CREATE INDEX IF NOT EXISTS idx_dep_license ON deployments(license_key);
   CREATE INDEX IF NOT EXISTS idx_dep_port ON deployments(port);
+  CREATE INDEX IF NOT EXISTS idx_renewal_license ON renewals(license_key);
+  CREATE INDEX IF NOT EXISTS idx_renewal_order ON renewals(order_id);
 `);
 
 // Migration: tambah kolom tier ke licenses (Fase 1 — full/chat)
@@ -185,6 +198,43 @@ const updateExpiresAt = (containerName, newExpiresAt) => {
         .run(newExpiresAt, containerName);
 };
 
+// ==================== RENEWALS ====================
+
+const createRenewal = (licenseKey, orderId, amount, durationDays) => {
+    const created_at = new Date().toISOString();
+    db.prepare('INSERT INTO renewals (license_key, order_id, amount, duration_days, status, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(licenseKey, orderId, amount, durationDays, 'pending', created_at);
+    return { license_key: licenseKey, order_id: orderId, amount, duration_days: durationDays, status: 'pending', created_at };
+};
+
+const getRenewalByOrderId = (orderId) => {
+    return db.prepare('SELECT * FROM renewals WHERE order_id = ?').get(orderId);
+};
+
+const getRenewalsByLicense = (licenseKey) => {
+    return db.prepare('SELECT * FROM renewals WHERE license_key = ? ORDER BY created_at DESC').all(licenseKey);
+};
+
+const markRenewalPaid = (orderId, paidAt) => {
+    db.prepare('UPDATE renewals SET status = ?, paid_at = ? WHERE order_id = ?')
+        .run('paid', paidAt || new Date().toISOString(), orderId);
+    return getRenewalByOrderId(orderId);
+};
+
+/**
+ * Extend deployment expiry by N days (base = expiry sekarang, bukan hari ini).
+ */
+const extendDeploymentExpiry = (containerName, days) => {
+    const dep = db.getDeploymentByContainer(containerName);
+    if (!dep) return null;
+    const base = dep.expires_at && new Date(dep.expires_at).getTime() > Date.now()
+        ? new Date(dep.expires_at)
+        : new Date();
+    const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+    updateExpiresAt(containerName, newExpiry.toISOString());
+    return { containerName, oldExpiresAt: dep.expires_at, newExpiresAt: newExpiry.toISOString() };
+};
+
 /**
  * Create deployment record for imported containers (no license)
  */
@@ -220,5 +270,10 @@ module.exports = {
     getExpiredDeployments,
     getExpiringSoon,
     deleteDeployment,
-    updateExpiresAt
+    updateExpiresAt,
+    createRenewal,
+    getRenewalByOrderId,
+    getRenewalsByLicense,
+    markRenewalPaid,
+    extendDeploymentExpiry
 };

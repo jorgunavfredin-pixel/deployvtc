@@ -12,7 +12,7 @@ const features = [
     {
         icon: CreditCard,
         title: 'QRIS Auto Payment',
-        desc: 'Pembayaran otomatis via QRIS. Buyer scan, transfer, produk terkirim otomatis. Terintegrasi PaKasir.'
+        desc: 'Pembayaran otomatis via QRIS. Support multi-gateway: PaKasir, WijayaPay, Xoftware, KlikQRIS. Buyer scan, transfer, produk terkirim otomatis.'
     },
     {
         icon: Wallet,
@@ -22,7 +22,7 @@ const features = [
     {
         icon: Shield,
         title: 'Admin Panel',
-        desc: 'Kelola produk, kategori, stok, voucher, user, broadcast — semua dari 1 dashboard.'
+        desc: 'Kelola produk, kategori, stok, voucher, user, broadcast — semua dari 1 dashboard web.'
     },
     {
         icon: Zap,
@@ -36,8 +36,8 @@ const features = [
     },
     {
         icon: Sparkles,
-        title: 'Custom Theme',
-        desc: '10 preset warna QRIS frame. Gold, Purple, Blue, Cyan, dan lainnya. Branding toko kamu.'
+        title: 'Custom QRIS',
+        desc: 'QRIS frame custom dengan preset tema. Branding toko kamu, tanpa biaya tambahan.'
     },
 ]
 

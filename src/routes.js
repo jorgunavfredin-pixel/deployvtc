@@ -8,13 +8,13 @@ const dockerEngine = require('./docker');
 
 const router = express.Router();
 
-// Multer config for banner upload (max 2MB, PNG only)
+// Multer config for banner upload (max 5MB, semua format gambar)
 const upload = multer({
     dest: path.join(__dirname, '../uploads/'),
-    limits: { fileSize: 2 * 1024 * 1024 },
+    limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'image/png') cb(null, true);
-        else cb(new Error('Only PNG files allowed'));
+        if (file.mimetype && file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Only image files allowed'));
     }
 });
 

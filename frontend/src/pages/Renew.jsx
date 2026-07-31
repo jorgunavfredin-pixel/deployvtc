@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { KeyRound, RefreshCw, CheckCircle, Clock, CreditCard, Home, ArrowLeft } from 'lucide-react'
+import { KeyRound, RefreshCw, CheckCircle, Clock, CreditCard, Home, X, QrCode, Loader } from 'lucide-react'
 import Navbar from '../components/Navbar'
 
 const fmtRp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
@@ -12,18 +12,18 @@ export default function Renew() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
 
-    // Pembayaran
-    const [days, setDays] = useState(30)
+    // Durasi & harga
     const [customDays, setCustomDays] = useState('')
     const [paying, setPaying] = useState(false)
-    const [orderId, setOrderId] = useState(null)
-    const [payStatus, setPayStatus] = useState(null)
+
+    // Popup pembayaran
+    const [payModal, setPayModal] = useState(null) // { order_id, amount, days, qr, signature, status }
     const [confirming, setConfirming] = useState(false)
 
     const checkLicense = async () => {
         const k = key.trim().toUpperCase()
         if (!k) return setError('Masukkan license key.')
-        setLoading(true); setError(''); setInfo(null); setPayStatus(null); setOrderId(null)
+        setLoading(true); setError(''); setInfo(null)
         try {
             const res = await fetch(`/api/renew/check?key=${encodeURIComponent(k)}`)
             const data = await res.json()
@@ -36,17 +36,20 @@ export default function Renew() {
         setLoading(false)
     }
 
-    const selectedDays = () => {
-        if (customDays && parseInt(customDays) > 0) return Math.min(3650, parseInt(customDays))
-        return parseInt(days) || 30
-    }
     const pricePerDay = info?.pricing?.price_per_day || 1000
-    const totalPrice = selectedDays() * pricePerDay
+    const pricePerMonth = info?.pricing?.price_per_month || 30000
+
+    const selectedDays = () => {
+        const c = parseInt(customDays)
+        if (c > 0) return Math.min(3650, c)
+        return 0
+    }
+    const totalPrice = () => selectedDays() * pricePerDay
 
     const startPay = async () => {
         const d = selectedDays()
-        if (!info || !d) return
-        setPaying(true); setError(''); setPayStatus(null)
+        if (!info || !d) return setError('Pilih durasi dulu (hari bebas).')
+        setPaying(true); setError('')
         try {
             const res = await fetch('/api/renew/create', {
                 method: 'POST',
@@ -55,9 +58,16 @@ export default function Renew() {
             })
             const data = await res.json()
             if (data.success) {
-                setOrderId(data.order_id)
-                setPayStatus({ type: 'created', order_id: data.order_id, amount: data.amount, signature: data.signature, qris_url: data.qris_url })
-                openSnap(data)
+                setPayModal({
+                    order_id: data.order_id,
+                    amount: data.amount,
+                    days: data.days,
+                    signature: data.signature,
+                    qr: data.qris_image || data.qris_url || null,
+                    status: 'created'
+                })
+                // Trigger Snap KlikQRIS (kalau SDK tersedia) — QR juga ditampilkan manual
+                if (data.signature) loadSnap(data)
             } else {
                 setError(data.error || 'Gagal membuat transaksi.')
             }
@@ -65,64 +75,45 @@ export default function Renew() {
         setPaying(false)
     }
 
-    const openSnap = (data) => {
+    const loadSnap = (data) => {
         // Muat script Snap Payment KlikQRIS (idempoten)
-        if (!window.__klikqrisSnapLoaded) {
+        if (!document.getElementById('klikqris-snap')) {
             const script = document.createElement('script')
+            script.id = 'klikqris-snap'
             script.src = 'https://klikqris.com/js/payment-snap.js?t=' + new Date().getTime()
-            script.onload = () => {
-                window.__klikqrisSnapLoaded = true
-                triggerSnap(data)
-            }
             document.body.appendChild(script)
-        } else {
-            triggerSnap(data)
-        }
-    }
-
-    const triggerSnap = (data) => {
-        // Snap KlikQRIS membaca tombol dengan data-signature, lalu tampilkan modal.
-        // Kita buat tombol tersembunyi & klik programatik kalau window.KlikQrisSnap tersedia.
-        try {
-            if (window.KlikQrisSnap) {
-                window.KlikQrisSnap.pay(data.signature, {
-                    onSuccess: () => setPayStatus(p => ({ ...p, snap: 'success' })),
-                    onPending: () => setPayStatus(p => ({ ...p, snap: 'pending' })),
-                    onError: () => setPayStatus(p => ({ ...p, snap: 'error' }))
-                })
-            } else {
-                // Fallback: buka QRIS URL kalau ada
-                if (data.qris_url) window.open(data.qris_url, '_blank')
-                else setPayStatus(p => ({ ...p, snap: 'manual' }))
-            }
-        } catch (e) {
-            if (data.qris_url) window.open(data.qris_url, '_blank')
-            else setPayStatus(p => ({ ...p, snap: 'manual' }))
         }
     }
 
     const confirmPay = async () => {
-        if (!orderId) return
-        setConfirming(true); setError('')
+        if (!payModal?.order_id) return
+        setConfirming(true)
         try {
             const res = await fetch('/api/renew/confirm', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order_id: orderId })
+                body: JSON.stringify({ order_id: payModal.order_id })
             })
             const data = await res.json()
             if (data.success && data.paid) {
-                setPayStatus({ type: 'paid', ...data })
-                // Refresh info license (sisa hari baru)
+                setPayModal(m => ({ ...m, status: 'paid', extended: data.extended }))
+                // Update info license di belakang
                 const chk = await fetch(`/api/renew/check?key=${encodeURIComponent(info.license.key)}`).then(r => r.json())
                 if (chk.success) setInfo(chk)
             } else if (data.success) {
-                setPayStatus({ type: 'pending', message: data.message || 'Belum terbayar. Cek lagi nanti.' })
+                setPayModal(m => ({ ...m, status: data.status === 'expired' ? 'expired' : 'pending', message: data.message }))
             } else {
                 setError(data.error || 'Gagal konfirmasi.')
             }
         } catch { setError('Gagal konfirmasi. Coba lagi.') }
         setConfirming(false)
+    }
+
+    const closeModal = () => setPayModal(null)
+
+    const closeIfPaid = () => {
+        // Kalau status paid, tutup setelah user lihat konfirmasi (klik tombol tutup)
+        setPayModal(null)
     }
 
     return (
@@ -132,13 +123,13 @@ export default function Renew() {
                 <div className="deploy-container">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
                         <div className="deploy-header">
-                            <h1><RefreshCw size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem', color: 'var(--success)' }} />Perpanjang License</h1>
-                            <p>Cek status & perpanjang masa aktif bot kamu.</p>
+                            <h1><RefreshCw size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem', color: 'var(--accent)' }} />Perpanjang License</h1>
+                            <p>Cek status & perpanjang masa aktif bot kamu. Pembayaran via QRIS.</p>
                         </div>
 
                         {error && <div className="alert alert-error">❌ {error}</div>}
 
-                        {/* STEP A: Check license */}
+                        {/* Step A: Check license */}
                         <div className="form-group">
                             <label className="form-label">License Key *</label>
                             <input
@@ -155,44 +146,45 @@ export default function Renew() {
                             {loading ? <><span className="spinner" /> Cek...</> : <><KeyRound size={18} /> Cek Status License</>}
                         </button>
 
-                        {/* STEP B: License info */}
+                        {/* Step B: License info */}
                         {info && (
                             <div className="result-card" style={{ marginTop: '1.25rem' }}>
                                 <h3>📋 Detail Lisensi</h3>
                                 <div className="result-item"><span className="result-label">Buyer</span><span className="result-value">{info.license.buyer_name}</span></div>
                                 <div className="result-item"><span className="result-label">Tier</span><span className="result-value">{info.license.tier === 'chat' ? '🔵 Chat saja' : '🟢 Full (Web + Chat)'}</span></div>
-                                <div className="result-item"><span className="result-label">Status</span><span className="result-value">{info.license.running ? '🟢 Running' : '⚪ Tidak deploy'}</span></div>
+                                <div className="result-item"><span className="result-label">Status</span><span className="result-value">{info.license.running ? '🟢 Aktif' : '⚪ Tidak deploy'}</span></div>
                                 <div className="result-item"><span className="result-label">Store</span><span className="result-value">{info.license.store_name || '-'}</span></div>
                                 <div className="result-item"><span className="result-label">Expired</span><span className="result-value">{info.license.expires_at ? new Date(info.license.expires_at).toLocaleDateString('id-ID') : '-'}</span></div>
                                 <div className="result-item">
                                     <span className="result-label">Sisa Hari</span>
-                                    <span className="result-value" style={{ color: info.license.days_left <= 7 ? '#ef4444' : 'var(--success)', fontWeight: 700 }}>
+                                    <span className="result-value" style={{ color: info.license.days_left <= 7 ? 'var(--error)' : 'var(--success)', fontWeight: 700 }}>
                                         {info.license.days_left} hari
                                     </span>
                                 </div>
                             </div>
                         )}
 
-                        {/* STEP C: Choose duration + pay */}
+                        {/* Step C: Choose duration + pay */}
                         {info && info.license.running && (
                             <div className="result-card" style={{ marginTop: '1rem' }}>
                                 <h3>💳 Perpanjang Masa Aktif</h3>
-                                <p style={{ marginBottom: '0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>
-                                    Harga: {fmtRp(info.pricing.price_per_month)}/bulan · {fmtRp(info.pricing.price_per_day)}/hari
+                                <p style={{ marginBottom: '0.9rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+                                    Harga: {fmtRp(pricePerMonth)}/bulan · {fmtRp(pricePerDay)}/hari
                                 </p>
-                                <div className="form-row">
-                                    {[30, 60, 90].map(d => (
-                                        <div className="form-group" key={d} style={{ flex: 1 }}>
-                                            <button
-                                                className={`btn ${days === d && !customDays ? 'btn-primary' : 'btn-outline'}`}
-                                                style={{ width: '100%' }}
-                                                onClick={() => { setDays(d); setCustomDays('') }}
-                                            >
-                                                {d / 30} bulan
-                                            </button>
-                                        </div>
-                                    ))}
+
+                                <div className="duration-grid">
+                                    {[30, 60, 90].map(d => {
+                                        const active = String(customDays) === String(d)
+                                        return (
+                                            <div key={d} className={`duration-option ${active ? 'active' : ''}`} onClick={() => setCustomDays(String(d))}>
+                                                <div className="d-months">{d / 30} Bulan</div>
+                                                <div className="d-days">{d} hari</div>
+                                                <div className="d-price">{fmtRp(pricePerDay * d)}</div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
+
                                 <div className="form-group">
                                     <label className="form-label">Atau durasi bebas (hari)</label>
                                     <input
@@ -205,49 +197,19 @@ export default function Renew() {
                                         onChange={e => setCustomDays(e.target.value)}
                                     />
                                 </div>
+
                                 <div className="result-item">
                                     <span className="result-label">Durasi</span>
-                                    <span className="result-value">{selectedDays()} hari</span>
+                                    <span className="result-value">{selectedDays() > 0 ? selectedDays() + ' hari' : '-'}</span>
                                 </div>
                                 <div className="result-item">
                                     <span className="result-label">Total Bayar</span>
-                                    <span className="result-value" style={{ color: 'var(--success)', fontWeight: 700, fontSize: '1.1rem' }}>{fmtRp(totalPrice)}</span>
+                                    <span className="result-value" style={{ color: 'var(--accent-dark)', fontWeight: 800, fontSize: '1.1rem' }}>{selectedDays() > 0 ? fmtRp(totalPrice()) : '-'}</span>
                                 </div>
-                                <button className="btn btn-primary btn-lg btn-full" onClick={startPay} disabled={paying}>
+
+                                <button className="btn btn-primary btn-lg btn-full" onClick={startPay} disabled={paying || selectedDays() < 1}>
                                     {paying ? <><span className="spinner" /> Membuat transaksi...</> : <><CreditCard size={18} /> Bayar Sekarang</>}
                                 </button>
-
-                                {/* After payment created */}
-                                {orderId && payStatus?.type === 'created' && (
-                                    <div style={{ marginTop: '1rem', padding: '0.9rem', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.35)', borderRadius: 8 }}>
-                                        <p><strong>Order ID:</strong> <code>{orderId}</code></p>
-                                        <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-                                            {payStatus.snap === 'success'
-                                                ? '✅ Pembayaran berhasil! Klik tombol di bawah untuk konfirmasi & aktifkan perpanjangan.'
-                                                : payStatus.snap === 'pending'
-                                                    ? '⏳ Menunggu pembayaran... Setelah bayar, klik "Cek Status".'
-                                                    : 'Setelah menyelesaikan pembayaran, klik tombol di bawah untuk konfirmasi.'}
-                                        </p>
-                                        <button className="btn btn-success btn-lg btn-full" onClick={confirmPay} disabled={confirming} style={{ marginTop: '0.5rem' }}>
-                                            {confirming ? <><span className="spinner" /> Mengecek...</> : <><CheckCircle size={18} /> Cek Status & Aktifkan</>}
-                                        </button>
-                                    </div>
-                                )}
-
-                                {payStatus?.type === 'paid' && (
-                                    <div style={{ marginTop: '1rem', padding: '0.9rem', background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8 }}>
-                                        <p style={{ color: 'var(--success)', fontWeight: 700 }}>✅ Pembayaran dikonfirmasi! Masa aktif diperpanjang.</p>
-                                        {payStatus.extended && (
-                                            <p style={{ fontSize: '0.85rem' }}>Expired baru: {new Date(payStatus.extended.newExpiresAt).toLocaleDateString('id-ID')}</p>
-                                        )}
-                                    </div>
-                                )}
-
-                                {payStatus?.type === 'pending' && (
-                                    <div style={{ marginTop: '1rem', padding: '0.9rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8 }}>
-                                        <p style={{ color: '#f59e0b' }}>⏳ {payStatus.message || 'Pembayaran belum terdeteksi.'}</p>
-                                    </div>
-                                )}
                             </div>
                         )}
                     </motion.div>
@@ -257,6 +219,80 @@ export default function Renew() {
                     </Link>
                 </div>
             </div>
+
+            {/* ==================== PAYMENT MODAL ==================== */}
+            {payModal && (
+                <div className="modal-overlay" onClick={payModal.status !== 'paid' ? closeModal : undefined}>
+                    <div className="modal-box" onClick={e => e.stopPropagation()}>
+                        <button className="modal-close" onClick={closeIfPaid} aria-label="Tutup">✕</button>
+
+                        <div className="modal-title">
+                            <QrCode size={20} color="var(--accent)" />
+                            Pembayaran QRIS
+                        </div>
+
+                        {payModal.status === 'paid' ? (
+                            <div className="pay-status-success" style={{ marginBottom: '1rem' }}>
+                                <CheckCircle size={28} style={{ marginBottom: '0.4rem' }} />
+                                <div style={{ fontSize: '1.05rem', fontWeight: 800 }}>Pembayaran Berhasil! 🎉</div>
+                                <div style={{ fontSize: '0.85rem', fontWeight: 400, marginTop: '0.4rem' }}>
+                                    Masa aktif license diperpanjang.
+                                </div>
+                                {payModal.extended && (
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 400, marginTop: '0.3rem' }}>
+                                        Expired baru: {new Date(payModal.extended.newExpiresAt).toLocaleDateString('id-ID')}
+                                    </div>
+                                )}
+                            </div>
+                        ) : payModal.status === 'pending' || payModal.status === 'expired' ? (
+                            <div className="pay-status-pending" style={{ marginBottom: '1rem' }}>
+                                {payModal.status === 'expired' ? '⏰ Transaksi kadaluarsa.' : '⏳ Pembayaran belum terdeteksi.'}
+                                {payModal.message ? <div style={{ fontSize: '0.8rem', fontWeight: 400, marginTop: '0.3rem' }}>{payModal.message}</div> : null}
+                            </div>
+                        ) : null}
+
+                        {/* QR Image */}
+                        {payModal.status !== 'paid' && payModal.qr && (
+                            <div className="qr-image-wrap">
+                                <img src={payModal.qr} alt="QRIS Pembayaran" />
+                            </div>
+                        )}
+
+                        {/* Summary */}
+                        {payModal.status !== 'paid' && (
+                            <div className="pay-summary">
+                                <div className="pay-row"><span className="label">Order ID</span><span className="value" style={{ fontFamily: 'monospace' }}>{payModal.order_id}</span></div>
+                                <div className="pay-row"><span className="label">Durasi</span><span className="value">{payModal.days} hari</span></div>
+                                <div className="pay-row pay-total"><span className="label">Total Bayar</span><span className="value">{fmtRp(payModal.amount)}</span></div>
+                                <div className="pay-row" style={{ fontSize: '0.78rem' }}>
+                                    <span className="label">Termasuk fee / biaya unik</span>
+                                    <span className="value" style={{ color: 'var(--text-dim)' }}>Otomatis</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Actions */}
+                        {payModal.status !== 'paid' && (
+                            <div className="pay-actions">
+                                <button className="btn btn-primary btn-lg" onClick={confirmPay} disabled={confirming}>
+                                    {confirming ? <><span className="spinner" /> Mengecek...</> : <><CheckCircle size={18} /> Saya Sudah Bayar — Cek Status</>}
+                                </button>
+                                <button className="btn btn-outline" onClick={closeModal}>
+                                    Tutup
+                                </button>
+                            </div>
+                        )}
+
+                        {payModal.status === 'paid' && (
+                            <div className="pay-actions">
+                                <button className="btn btn-primary btn-lg" onClick={closeIfPaid}>
+                                    <CheckCircle size={18} /> Selesai
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </>
     )
 }

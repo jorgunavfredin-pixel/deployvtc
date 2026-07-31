@@ -154,6 +154,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [banner, setBanner] = useState(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [provider, setProvider] = useState('')
 
     const theme = THEME_COLORS[form.themePreset] || THEME_COLORS.gold
 
@@ -167,14 +168,16 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
         if (tier === 'full' && !adminPanelPassword) {
             return setError('License tier FULL memerlukan Admin Panel Password.')
         }
+        if (!provider) return setError('Pilih payment gateway dulu.')
         const hasGateway =
-            (form.pakasirApiKey && form.pakasirSlug) ||
-            (form.wijayapayCodeMerchant && form.wijayapayApiKey) ||
-            (form.xoftwareApiKey && form.xoftwareMerchantId && form.xoftwareWebhookSecret) ||
-            (form.klikqrisApiKey && form.klikqrisMerchantId)
-        if (!hasGateway) return setError('Minimal satu payment gateway QRIS harus diisi (PaKasir / WijayaPay / Xoftware / KlikQRIS).')
-        if (!banner) return setError('Banner toko wajib diupload (PNG only).')
-        if (banner.type !== 'image/png') return setError('Banner harus berformat PNG.')
+            (provider === 'pakasir' && form.pakasirApiKey && form.pakasirSlug) ||
+            (provider === 'wijayapay' && form.wijayapayCodeMerchant && form.wijayapayApiKey) ||
+            (provider === 'xoftware' && form.xoftwareApiKey && form.xoftwareMerchantId && form.xoftwareWebhookSecret) ||
+            (provider === 'klikqris' && form.klikqrisApiKey && form.klikqrisMerchantId)
+        if (!hasGateway) return setError('Lengkapi credential payment gateway yang dipilih.')
+        if (!banner) return setError('Banner toko wajib diupload.')
+        if (!banner.type.startsWith('image/')) return setError('File harus berupa gambar.')
+        if (banner.size > 5 * 1024 * 1024) return setError('Ukuran banner maksimal 5MB.')
 
         setLoading(true)
         setError('')
@@ -287,70 +290,87 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             )}
 
             <div className="form-group">
-                <label className="form-label">Payment Gateway QRIS * (isi minimal satu)</label>
-                <span className="form-hint">Pilih salah satu / beberapa provider. Yang kosong akan diabaikan.</span>
+                <label className="form-label">Payment Gateway *</label>
+                <select className="form-input" value={provider} onChange={e => setProvider(e.target.value)}>
+                    <option value="">— Pilih Payment Gateway —</option>
+                    <option value="pakasir">PaKasir</option>
+                    <option value="wijayapay">WijayaPay</option>
+                    <option value="xoftware">Xoftware Pay</option>
+                    <option value="klikqris">KlikQRIS</option>
+                </select>
+                <span className="form-hint">Pilih 1 gateway untuk pembayaran QRIS bot. Bisa ditambah lagi dari Admin Panel setelah deploy.</span>
             </div>
 
-            <div className="form-row">
-                <div className="form-group">
-                    <label className="form-label">PaKasir API Key</label>
-                    <input className="form-input" placeholder="API key dari PaKasir" value={form.pakasirApiKey} onChange={set('pakasirApiKey')} />
+            {provider === 'pakasir' && (
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">PaKasir API Key *</label>
+                        <input className="form-input" type="password" placeholder="API key dari PaKasir" value={form.pakasirApiKey} onChange={set('pakasirApiKey')} />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">PaKasir Slug *</label>
+                        <input className="form-input" placeholder="slug project PaKasir" value={form.pakasirSlug} onChange={set('pakasirSlug')} />
+                    </div>
                 </div>
-                <div className="form-group">
-                    <label className="form-label">PaKasir Slug</label>
-                    <input className="form-input" placeholder="slug project PaKasir" value={form.pakasirSlug} onChange={set('pakasirSlug')} />
-                </div>
-            </div>
+            )}
 
-            <div className="form-row">
-                <div className="form-group">
-                    <label className="form-label">WijayaPay Code Merchant</label>
-                    <input className="form-input" placeholder="cth: WP692f1bafd86" value={form.wijayapayCodeMerchant} onChange={set('wijayapayCodeMerchant')} />
+            {provider === 'wijayapay' && (
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">WijayaPay Code Merchant *</label>
+                        <input className="form-input" placeholder="cth: WP692f1bafd86" value={form.wijayapayCodeMerchant} onChange={set('wijayapayCodeMerchant')} />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">WijayaPay API Key *</label>
+                        <input className="form-input" type="password" placeholder="API key dari WijayaPay" value={form.wijayapayApiKey} onChange={set('wijayapayApiKey')} />
+                    </div>
                 </div>
-                <div className="form-group">
-                    <label className="form-label">WijayaPay API Key</label>
-                    <input className="form-input" type="password" placeholder="API key dari WijayaPay" value={form.wijayapayApiKey} onChange={set('wijayapayApiKey')} />
-                </div>
-            </div>
+            )}
 
-            <div className="form-group">
-                <label className="form-label">Xoftware API Key</label>
-                <input className="form-input" type="password" placeholder="API key dari Xoftware" value={form.xoftwareApiKey} onChange={set('xoftwareApiKey')} />
-            </div>
-            <div className="form-row">
-                <div className="form-group">
-                    <label className="form-label">Xoftware Merchant ID</label>
-                    <input className="form-input" placeholder="cth: 12345" value={form.xoftwareMerchantId} onChange={set('xoftwareMerchantId')} />
-                </div>
-                <div className="form-group">
-                    <label className="form-label">Xoftware Webhook Secret</label>
-                    <input className="form-input" type="password" placeholder="Webhook secret Xoftware" value={form.xoftwareWebhookSecret} onChange={set('xoftwareWebhookSecret')} />
-                </div>
-            </div>
-            <div className="form-row">
-                <div className="form-group">
-                    <label className="form-label">Xoftware Notify URL (opsional)</label>
-                    <input className="form-input" placeholder="https://t.me/nama_bot" value={form.xoftwareNotifyUrl} onChange={set('xoftwareNotifyUrl')} />
-                </div>
-                <div className="form-group">
-                    <label className="form-label">Xoftware Fee Direction</label>
-                    <select className="form-input" value={form.xoftwareFeeDirection} onChange={set('xoftwareFeeDirection')}>
-                        <option value="merchant">Merchant (fee dipotong settlement)</option>
-                        <option value="user">User (fee ditambahkan ke buyer)</option>
-                    </select>
-                </div>
-            </div>
+            {provider === 'xoftware' && (
+                <>
+                    <div className="form-group">
+                        <label className="form-label">Xoftware API Key *</label>
+                        <input className="form-input" type="password" placeholder="API key dari Xoftware" value={form.xoftwareApiKey} onChange={set('xoftwareApiKey')} />
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label className="form-label">Xoftware Merchant ID *</label>
+                            <input className="form-input" placeholder="cth: 12345" value={form.xoftwareMerchantId} onChange={set('xoftwareMerchantId')} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Xoftware Webhook Secret *</label>
+                            <input className="form-input" type="password" placeholder="Webhook secret Xoftware" value={form.xoftwareWebhookSecret} onChange={set('xoftwareWebhookSecret')} />
+                        </div>
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label className="form-label">Xoftware Notify URL (opsional)</label>
+                            <input className="form-input" placeholder="https://t.me/nama_bot" value={form.xoftwareNotifyUrl} onChange={set('xoftwareNotifyUrl')} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Xoftware Fee Direction</label>
+                            <select className="form-input" value={form.xoftwareFeeDirection} onChange={set('xoftwareFeeDirection')}>
+                                <option value="merchant">Merchant (fee dipotong settlement)</option>
+                                <option value="user">User (fee ditambahkan ke buyer)</option>
+                            </select>
+                        </div>
+                    </div>
+                </>
+            )}
 
-            <div className="form-row">
-                <div className="form-group">
-                    <label className="form-label">KlikQRIS API Key</label>
-                    <input className="form-input" type="password" placeholder="API key dari KlikQRIS" value={form.klikqrisApiKey} onChange={set('klikqrisApiKey')} />
+            {provider === 'klikqris' && (
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">KlikQRIS API Key *</label>
+                        <input className="form-input" type="password" placeholder="API key dari KlikQRIS" value={form.klikqrisApiKey} onChange={set('klikqrisApiKey')} />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">KlikQRIS Merchant ID *</label>
+                        <input className="form-input" placeholder="cth: 123456789" value={form.klikqrisMerchantId} onChange={set('klikqrisMerchantId')} />
+                    </div>
                 </div>
-                <div className="form-group">
-                    <label className="form-label">KlikQRIS Merchant ID</label>
-                    <input className="form-input" placeholder="cth: 123456789" value={form.klikqrisMerchantId} onChange={set('klikqrisMerchantId')} />
-                </div>
-            </div>
+            )}
 
             <div className="form-row">
                 <div className="form-group">
@@ -394,14 +414,14 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             </div>
 
             <div className="form-group file-upload">
-                <label className="form-label">Banner Toko * (PNG only)</label>
+                <label className="form-label">Banner Toko * (opsional gambar)</label>
                 <input
                     className="form-input"
                     type="file"
-                    accept="image/png"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
                     onChange={e => setBanner(e.target.files[0])}
                 />
-                <span className="form-hint">PNG only, maksimum 2MB. Akan tampil saat /start.</span>
+                <span className="form-hint">PNG/JPG/WebP/GIF, maks 5MB. Tampil saat /start. Bisa di-nonaktifkan dari Admin Panel.</span>
             </div>
 
             <button

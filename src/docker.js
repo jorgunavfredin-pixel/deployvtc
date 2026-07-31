@@ -38,9 +38,11 @@ const deployBot = async (config) => {
             .join('\n');
         fs.writeFileSync(path.join(buyerDir, '.env'), envContent);
 
-        // Copy banner if provided
+        // Copy banner if provided (deteksi ekstensi asli: png/jpg/jpeg/webp/gif)
         if (bannerPath && fs.existsSync(bannerPath)) {
-            fs.copyFileSync(bannerPath, path.join(buyerDir, 'assets', 'banner.png'));
+            const ext = (path.extname(bannerPath) || '.png').toLowerCase();
+            const safeExt = ['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext) ? ext : '.png';
+            fs.copyFileSync(bannerPath, path.join(buyerDir, 'assets', `banner${safeExt}`));
         } else {
             const defaultBanner = path.join(__dirname, '../assets/banner.png');
             if (fs.existsSync(defaultBanner)) {

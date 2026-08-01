@@ -2931,3 +2931,297 @@ h3 {
 .success-row strong {
   color: var(--text-bright);
 }
+
+/* ==================== MOBILE: ADMIN PANEL ==================== */
+/* Sidebar jadi bottom nav bar, tabel jadi card stack, modal full-screen */
+
+@media (max-width: 768px) {
+  /* Layout: topbar tetap atas, konten full, nav di bawah */
+  .admin-panel {
+    padding-bottom: 64px; /* ruang untuk bottom nav */
+  }
+
+  .admin-topbar {
+    padding: 0.55rem 0.9rem;
+  }
+
+  .admin-brand span {
+    font-size: 0.9rem;
+  }
+
+  .admin-top-actions {
+    gap: 0.3rem;
+  }
+
+  .admin-body {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    height: 60px;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    background: var(--bg-card-solid);
+    border-top: 1px solid var(--border-card);
+    border-right: none;
+    padding: 0 0.4rem;
+    z-index: 60;
+    gap: 0.2rem;
+  }
+
+  .admin-nav-item {
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.35rem 0.2rem;
+    font-size: 0.62rem;
+    border-radius: 10px;
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    max-width: 84px;
+  }
+
+  .admin-nav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .admin-nav-item span {
+    display: block;
+    font-size: 0.6rem;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .admin-content {
+    padding: 0.9rem;
+    overflow-x: hidden;
+  }
+
+  /* Title & toolbar */
+  .admin-title {
+    font-size: 1.1rem;
+  }
+
+  .admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .admin-search {
+    width: 100%;
+  }
+
+  .admin-filter-row {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.2rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Stats grid 2 kolom di mobile */
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+  }
+
+  .admin-stat-card {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .admin-stat-value {
+    font-size: 1.2rem;
+  }
+
+  /* Tabel → card stack: label muncul di atas tiap value */
+  .admin-table,
+  .admin-table thead,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table th,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table thead {
+    display: none; /* label pakai data-label */
+  }
+
+  .admin-table tr {
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    background: var(--bg-card-hover);
+  }
+
+  .admin-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0.25rem;
+    border-bottom: 1px dashed var(--border-card);
+    text-align: right;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .admin-table td:last-child {
+    border-bottom: none;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--text-dim);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+    text-align: left;
+  }
+
+  .admin-table td:first-child {
+    background: var(--accent-bg);
+    border-radius: 8px 8px 0 0;
+    margin: -0.4rem -0.6rem 0;
+    padding: 0.55rem 0.6rem;
+    border-bottom: 1px solid var(--border-card);
+  }
+
+  .admin-table td:first-child::before {
+    display: none; /* baris pertama tanpa label, jadi header kartu */
+  }
+
+  .admin-actions {
+    justify-content: flex-end;
+    gap: 0.35rem;
+  }
+
+  /* Modal mobile: full-screen, rounded top */
+  .admin-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .admin-modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 18px 18px 0 0;
+    padding: 1.1rem 1rem calc(1.1rem + env(safe-area-inset-bottom));
+  }
+
+  .admin-modal-lg {
+    max-width: 100%;
+  }
+
+  .config-saveall {
+    margin: 0.5rem -1rem calc(-1.1rem - env(safe-area-inset-bottom));
+    padding: 0.7rem 0.9rem;
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Toast di tengah bawah */
+  .admin-toast {
+    bottom: 72px;
+    right: 1rem;
+    left: 1rem;
+    text-align: center;
+  }
+
+  /* Logs */
+  .admin-logs {
+    max-height: 50vh;
+    font-size: 0.7rem;
+  }
+
+  /* Badge & misc */
+  .admin-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-item {
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .audit-time {
+    margin-left: auto;
+  }
+
+  .admin-card {
+    padding: 0.9rem;
+  }
+}
+
+/* Mobile kecil (≤420px): tabel aksi wrap */
+@media (max-width: 420px) {
+  .admin-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-stat-grid-4 .admin-stat-card {
+    grid-column: span 1;
+  }
+
+  .btn-xs {
+    padding: 0.35rem 0.5rem;
+  }
+}
+
+/* ==================== MOBILE: DEPLOY / RENEW / LOGIN ==================== */
+@media (max-width: 480px) {
+  /* Anti-zoom iOS: input minimal 16px */
+  .form-input,
+  .form-input[type="file"]::file-selector-button,
+  .admin-inline-select,
+  select.form-input {
+    font-size: 16px;
+  }
+
+  .deploy-container {
+    padding: 1.1rem;
+  }
+
+  .step-dot {
+    width: 34px;
+    height: 34px;
+    font-size: 0.75rem;
+  }
+
+  .step-line {
+    width: 32px;
+  }
+
+  .result-card {
+    padding: 1rem;
+  }
+
+  .result-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+
+  .admin-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-modal-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -468,10 +468,10 @@ function DashboardView({ data }) {
                             <tbody>
                                 {expiring_soon.map(d => (
                                     <tr key={d.container_name}>
-                                        <td>{d.store_name}</td>
-                                        <td>{d.buyer_name || '-'}</td>
-                                        <td className="admin-warn">{Math.max(0, Math.ceil((new Date(d.expires_at).getTime() - Date.now()) / 86400000))} hari</td>
-                                        <td>{fmtDate(d.expires_at)}</td>
+                                        <td data-label="Store">{d.store_name}</td>
+                                        <td data-label="Buyer">{d.buyer_name || '-'}</td>
+                                        <td data-label="Sisa" className="admin-warn">{Math.max(0, Math.ceil((new Date(d.expires_at).getTime() - Date.now()) / 86400000))} hari</td>
+                                        <td data-label="Expired">{fmtDate(d.expires_at)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -486,10 +486,10 @@ function DashboardView({ data }) {
                             <tbody>
                                 {recent_renewals.map(r => (
                                     <tr key={r.order_id}>
-                                        <td className="admin-mono">{r.order_id.slice(0, 14)}...</td>
-                                        <td>{fmtRp(r.amount)}</td>
-                                        <td>{r.status === 'paid' ? <span className="badge badge-green">Paid</span> : r.status === 'pending' ? <span className="badge badge-amber">Pending</span> : <span className="badge badge-gray">Expired</span>}</td>
-                                        <td>{fmtTime(r.created_at)}</td>
+                                        <td data-label="Order" className="admin-mono">{r.order_id.slice(0, 14)}...</td>
+                                        <td data-label="Jumlah">{fmtRp(r.amount)}</td>
+                                        <td data-label="Status">{r.status === 'paid' ? <span className="badge badge-green">Paid</span> : r.status === 'pending' ? <span className="badge badge-amber">Pending</span> : <span className="badge badge-gray">Expired</span>}</td>
+                                        <td data-label="Waktu">{fmtTime(r.created_at)}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -535,19 +535,19 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig 
                     <tbody>
                         {filtered.map(l => (
                             <tr key={l.key}>
-                                <td><strong>{l.buyer_name || '-'}</strong></td>
-                                <td className="admin-mono">{l.key}</td>
-                                <td>
+                                <td data-label="Buyer"><strong>{l.buyer_name || '-'}</strong></td>
+                                <td data-label="Key" className="admin-mono">{l.key}</td>
+                                <td data-label="Tier">
                                     <select className="admin-inline-select" value={l.tier} disabled={busy === `tier-${l.key}`} onChange={e => onChangeTier(l.key, e.target.value)}>
                                         <option value="full">Full</option>
                                         <option value="chat">Chat</option>
                                     </select>
                                 </td>
-                                <td><LicStatusBadge status={l.status} /></td>
-                                <td>
+                                <td data-label="Status"><LicStatusBadge status={l.status} /></td>
+                                <td data-label="Deployment">
                                     {l.deployment ? <span className="admin-mono" style={{ fontSize: '0.75rem' }}>{l.deployment.container_name} :{l.deployment.port}</span> : <span className="admin-dim">—</span>}
                                 </td>
-                                <td>
+                                <td data-label="Aksi">
                                     <div className="admin-actions">
                                         {l.deployment && (
                                             <button className="btn btn-outline btn-xs" onClick={() => onConfig(l.deployment)} title="Konfigurasi Bot">
@@ -607,16 +607,16 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                             const cs = d.container_status || {}
                             return (
                                 <tr key={d.container_name}>
-                                    <td>
+                                    <td data-label="Store">
                                         <strong>{d.store_name}</strong>
                                         <div className="admin-dim">{d.buyer_name || '-'}</div>
                                     </td>
-                                    <td className="admin-mono" style={{ fontSize: '0.75rem' }}>{d.container_name}</td>
-                                    <td className="admin-mono">:{d.port}</td>
-                                    <td><StatusBadge running={cs.running} status={cs.status || d.status} /></td>
-                                    <td>{cs.uptime ? `${Math.floor(cs.uptime / 60)}m` : '-'}</td>
-                                    <td>{fmtDate(d.expires_at)}</td>
-                                    <td>
+                                    <td data-label="Container" className="admin-mono" style={{ fontSize: '0.75rem' }}>{d.container_name}</td>
+                                    <td data-label="Port" className="admin-mono">:{d.port}</td>
+                                    <td data-label="Status"><StatusBadge running={cs.running} status={cs.status || d.status} /></td>
+                                    <td data-label="Uptime">{cs.uptime ? `${Math.floor(cs.uptime / 60)}m` : '-'}</td>
+                                    <td data-label="Expired">{fmtDate(d.expires_at)}</td>
+                                    <td data-label="Aksi">
                                         <div className="admin-actions">
                                             {!cs.running && <button className="btn btn-success btn-xs" disabled={busy === `start-${d.container_name}`} onClick={() => onAction(d.container_name, 'start')} title="Start"><Play size={12} /></button>}
                                             {cs.running && <button className="btn btn-danger btn-xs" disabled={busy === `stop-${d.container_name}`} onClick={() => onAction(d.container_name, 'stop')} title="Stop"><Square size={12} /></button>}

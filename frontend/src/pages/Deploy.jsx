@@ -83,7 +83,7 @@ function LicenseStep({ onValid }) {
             {info && (
                 <div className="alert" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '0.75rem' }}>
                     <div><strong>👤 {info.buyer}</strong></div>
-                    <div>Tier: {info.tier === 'chat' ? '🔵 Chat saja (tanpa web admin)' : '🟢 Full (Web + Chat)'}</div>
+                    <div>Akses: {info.tier === 'chat' ? 'Chat Bot saja' : 'Web Admin + Chat Bot'}</div>
                 </div>
             )}
 
@@ -140,6 +140,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
         klikqrisApiKey: '', klikqrisMerchantId: ''
     })
     const [banner, setBanner] = useState(null)
+    const [noBanner, setNoBanner] = useState(false)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [provider, setProvider] = useState('')
@@ -185,7 +186,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             return setError('Field wajib (bot token, admin id, nama toko, support username) harus diisi.')
         }
         if (tier === 'full' && !adminPanelPassword) {
-            return setError('License tier FULL memerlukan Admin Panel Password.')
+            return setError('License dengan akses Web Admin memerlukan Admin Panel Password.')
         }
         if (!provider) return setError('Pilih payment gateway dulu.')
         const hasGateway =
@@ -194,9 +195,9 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             (provider === 'xoftware' && form.xoftwareApiKey && form.xoftwareMerchantId && form.xoftwareWebhookSecret) ||
             (provider === 'klikqris' && form.klikqrisApiKey && form.klikqrisMerchantId)
         if (!hasGateway) return setError('Lengkapi credential payment gateway yang dipilih.')
-        if (!banner) return setError('Banner toko wajib diupload.')
-        if (!banner.type.startsWith('image/')) return setError('File harus berupa gambar.')
-        if (banner.size > 5 * 1024 * 1024) return setError('Ukuran banner maksimal 5MB.')
+        if (!banner && !noBanner) return setError('Upload banner toko atau centang "Tidak perlu banner".')
+        if (banner && !banner.type.startsWith('image/')) return setError('File harus berupa gambar.')
+        if (banner && banner.size > 5 * 1024 * 1024) return setError('Ukuran banner maksimal 5MB.')
 
         setLoading(true)
         setError('')
@@ -244,7 +245,8 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
         // KlikQRIS
         fd.append('klikqris_api_key', form.klikqrisApiKey.trim())
         fd.append('klikqris_merchant_id', form.klikqrisMerchantId.trim())
-        fd.append('banner', banner)
+        if (banner && !noBanner) fd.append('banner', banner)
+        fd.append('no_banner', noBanner ? '1' : '')
 
         try {
             const res = await fetch('/api/deploy', { method: 'POST', body: fd })
@@ -271,7 +273,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 <h1><Settings size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem' }} />Konfigurasi Bot</h1>
                 <p>Isi data di bawah untuk setup bot kamu.</p>
                 <div className="alert" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8, padding: '0.5rem 0.9rem', marginTop: '0.5rem', display: 'inline-block' }}>
-                    {tier === 'chat' ? '🔵 Tier: Chat saja (tanpa web admin)' : '🟢 Tier: Full (Web + Chat)'}
+                    {tier === 'chat' ? 'Akses: Chat Bot saja' : 'Akses: Web Admin + Chat Bot'}
                 </div>
             </div>
 
@@ -458,14 +460,29 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </div>
 
                 <div className="form-group file-upload">
-                    <label className="form-label">Banner Toko * (opsional gambar)</label>
+                    <label className="form-label">Banner Toko (opsional)</label>
                     <input
                         className="form-input"
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/gif"
-                        onChange={e => setBanner(e.target.files[0])}
+                        onChange={e => {
+                            setBanner(e.target.files[0] || null)
+                            if (e.target.files[0]) setNoBanner(false)
+                        }}
                     />
-                    <span className="form-hint">PNG/JPG/WebP/GIF, maks 5MB. Tampil saat /start. Bisa di-nonaktifkan dari Admin Panel.</span>
+                    <span className="form-hint">PNG/JPG/WebP/GIF, maks 5MB. Tampil saat /start. Kosongkan kalau tidak perlu.</span>
+                    <label className="no-banner-check" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.6rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                        <input
+                            type="checkbox"
+                            checked={noBanner}
+                            onChange={e => {
+                                setNoBanner(e.target.checked)
+                                if (e.target.checked) setBanner(null)
+                            }}
+                            style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                        />
+                        Saya tidak perlu banner toko
+                    </label>
                 </div>
             </FieldSection>
 

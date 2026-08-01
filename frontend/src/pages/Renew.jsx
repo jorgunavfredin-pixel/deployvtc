@@ -199,7 +199,7 @@ export default function Renew() {
                             <div className="result-card" style={{ marginTop: '1.25rem' }}>
                                 <h3>📋 Detail Lisensi</h3>
                                 <div className="result-item"><span className="result-label">Buyer</span><span className="result-value">{info.license.buyer_name}</span></div>
-                                <div className="result-item"><span className="result-label">Tier</span><span className="result-value">{info.license.tier === 'chat' ? '🔵 Chat saja' : '🟢 Full (Web + Chat)'}</span></div>
+                                <div className="result-item"><span className="result-label">Akses</span><span className="result-value">{info.license.tier === 'chat' ? 'Chat Bot saja' : 'Web Admin + Chat Bot'}</span></div>
                                 <div className="result-item"><span className="result-label">Status</span><span className="result-value">{info.license.running ? '🟢 Aktif' : '⚪ Tidak deploy'}</span></div>
                                 <div className="result-item"><span className="result-label">Store</span><span className="result-value">{info.license.store_name || '-'}</span></div>
                                 <div className="result-item"><span className="result-label">Expired</span><span className="result-value">{info.license.expires_at ? new Date(info.license.expires_at).toLocaleDateString('id-ID') : '-'}</span></div>
@@ -255,9 +255,11 @@ export default function Renew() {
                                     <span className="result-value" style={{ color: 'var(--accent-dark)', fontWeight: 800, fontSize: '1.1rem' }}>{selectedDays() > 0 ? fmtRp(totalPrice()) : '-'}</span>
                                 </div>
 
-                                <button className="btn btn-primary btn-lg btn-full" onClick={startPay} disabled={paying || selectedDays() < 1}>
-                                    {paying ? <><span className="spinner" /> Membuat transaksi...</> : <><CreditCard size={18} /> Bayar Sekarang</>}
-                                </button>
+                                <div className="pay-action">
+                                    <button className="btn btn-primary btn-lg btn-full" onClick={startPay} disabled={paying || selectedDays() < 1}>
+                                        {paying ? <><span className="spinner" /> Membuat transaksi...</> : <><CreditCard size={18} /> Bayar Sekarang</>}
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </motion.div>

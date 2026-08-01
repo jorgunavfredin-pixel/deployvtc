@@ -5,7 +5,7 @@ import {
     Play, Square, RotateCw, Hammer, Trash2, Clock, ExternalLink,
     Server, Wallet, HardDrive, Loader2, Download, Upload, Database,
     Settings2, ScrollText, Search, ShieldCheck, X, CheckCircle2, AlertTriangle,
-    Store, Save
+    Store, Save, Copy
 } from 'lucide-react'
 import { LogoIcon } from '../components/Logo'
 
@@ -58,6 +58,7 @@ export default function AdminPanel({ onLogout }) {
     const [showNewLic, setShowNewLic] = useState(false)
     const [newLicName, setNewLicName] = useState('')
     const [newLicTier, setNewLicTier] = useState('full')
+    const [newLicResult, setNewLicResult] = useState(null) // { key, buyer_name, tier } setelah dibuat
     const [creating, setCreating] = useState(false)
 
     // Timer modal
@@ -148,7 +149,7 @@ export default function AdminPanel({ onLogout }) {
                 body: JSON.stringify({ buyer_name: newLicName.trim(), tier: newLicTier })
             })
             notify(`License dibuat: ${d.license.key}`)
-            setShowNewLic(false)
+            setNewLicResult({ key: d.license.key, buyer_name: newLicName.trim(), tier: newLicTier })
             setNewLicName('')
             await loadLicenses(); await loadDashboard()
         } catch (e) { notify(e.message, 'err') }
@@ -161,7 +162,7 @@ export default function AdminPanel({ onLogout }) {
             const d = await api(`/api/admin/licenses/${key}/tier`, {
                 method: 'POST', body: JSON.stringify({ tier })
             })
-            notify(d.rebuild?.success ? 'Tier diubah + rebuild OK' : `Tier diubah${d.rebuild?.error ? ` (rebuild: ${d.rebuild.error})` : ''}`)
+            notify(d.rebuild?.success ? 'Akses diubah + rebuild OK' : `Akses diubah${d.rebuild?.error ? ` (rebuild: ${d.rebuild.error})` : ''}`)
             await loadLicenses()
         } catch (e) { notify(e.message, 'err') }
         setBusy('')
@@ -256,14 +257,7 @@ export default function AdminPanel({ onLogout }) {
                     <span>Deploy Admin</span>
                 </div>
                 <div className="admin-top-actions">
-                    <button
-                        className={`btn btn-outline btn-sm ${autoRefresh ? 'active' : ''}`}
-                        onClick={() => setAutoRefresh(v => !v)}
-                        title="Auto-refresh 30 detik"
-                    >
-                        <RefreshCw size={14} /> Auto
-                    </button>
-                    <button className="btn btn-outline btn-sm" onClick={() => { loadDashboard(); loadDeployments(); notify('Data diperbarui') }}>
+                    <button className="btn btn-outline btn-sm" onClick={() => { loadDashboard(); loadDeployments(); notify('Data diperbarui') }} title="Refresh data">
                         <RefreshCw size={14} /> Refresh
                     </button>
                     <button className="btn btn-danger btn-sm" onClick={onLogout}>
@@ -335,29 +329,72 @@ export default function AdminPanel({ onLogout }) {
             {/* ==================== MODALS ==================== */}
 
             {showNewLic && (
-                <div className="admin-modal-overlay" onClick={() => setShowNewLic(false)}>
-                    <div className="admin-modal" onClick={e => e.stopPropagation()}>
+                <div className="admin-modal-overlay" onClick={() => { setShowNewLic(false); setNewLicResult(null) }}>
+                    <div className="admin-modal admin-modal-lg" onClick={e => e.stopPropagation()}>
                         <div className="modal-head">
                             <h3><Plus size={18} /> Buat License Baru</h3>
-                            <button className="modal-close" onClick={() => setShowNewLic(false)}><X size={18} /></button>
+                            <button className="modal-close" onClick={() => { setShowNewLic(false); setNewLicResult(null) }}><X size={18} /></button>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Nama Buyer</label>
-                            <input className="form-input" placeholder="Nama pembeli" value={newLicName} onChange={e => setNewLicName(e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Tier</label>
-                            <select className="form-input" value={newLicTier} onChange={e => setNewLicTier(e.target.value)}>
-                                <option value="full">Full — Web + Chat</option>
-                                <option value="chat">Chat saja</option>
-                            </select>
-                        </div>
-                        <div className="admin-modal-actions">
-                            <button className="btn btn-outline" onClick={() => setShowNewLic(false)}>Batal</button>
-                            <button className="btn btn-primary" onClick={createLicense} disabled={creating}>
-                                {creating ? <><Loader2 className="spin" size={14} /> Membuat...</> : 'Buat License'}
-                            </button>
-                        </div>
+
+                        {newLicResult ? (
+                            <div className="lic-result">
+                                <div className="lic-result-ok">
+                                    <CheckCircle2 size={22} /> License berhasil dibuat!
+                                </div>
+                                <div className="lic-result-meta">
+                                    <div><span>Buyer</span><strong>{newLicResult.buyer_name}</strong></div>
+                                    <div><span>Akses</span><strong>{newLicResult.tier === 'full' ? 'Web + Chat' : 'Chat saja'}</strong></div>
+                                </div>
+                                <label className="form-label">Template pesan untuk buyer — tinggal copy & kirim</label>
+                                <textarea className="form-input lic-template" readOnly rows={12} onFocus={e => e.target.select()}
+                                    value={`Halo ${newLicResult.buyer_name}! 🎉
+
+License bot kamu sudah jadi, berikut detailnya:
+
+🔑 License Key:
+${newLicResult.key}
+
+✅ Akses: ${newLicResult.tier === 'full' ? 'Full (Web + Chat)' : 'Chat saja'}
+
+📌 Cara Deploy:
+1. Buka link berikut di HP/PC kamu
+2. Masukkan License Key di atas
+3. Isi data toko & pilih template QRIS
+4. Klik Deploy — bot otomatis jalan
+
+🌐 Link Deploy:
+${window.location.origin}/deploy
+
+⏳ Masa aktif terhitung sejak deploy pertama.
+
+Kalau butuh bantuan, balas chat ini ya! 🙏`} />
+                                <div className="admin-modal-actions">
+                                    <button className="btn btn-outline" onClick={() => { navigator.clipboard?.writeText(document.querySelector('.lic-template')?.value); notify('Template disalin!') }}><Copy size={14} /> Salin</button>
+                                    <button className="btn btn-primary" onClick={() => { setShowNewLic(false); setNewLicResult(null) }}>Selesai</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="form-group">
+                                    <label className="form-label">Nama Buyer</label>
+                                    <input className="form-input" placeholder="Nama pembeli" value={newLicName} onChange={e => setNewLicName(e.target.value)} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Akses</label>
+                                    <select className="form-input" value={newLicTier} onChange={e => setNewLicTier(e.target.value)}>
+                                        <option value="full">Web + Chat</option>
+                                        <option value="chat">Chat saja</option>
+                                    </select>
+                                    <span className="form-hint">Web + Chat: akses penuh (web admin + bot chat). Chat saja: hanya bot chat.</span>
+                                </div>
+                                <div className="admin-modal-actions">
+                                    <button className="btn btn-outline" onClick={() => setShowNewLic(false)}>Batal</button>
+                                    <button className="btn btn-primary" onClick={createLicense} disabled={creating}>
+                                        {creating ? <><Loader2 className="spin" size={14} /> Membuat...</> : 'Buat License'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
@@ -482,11 +519,12 @@ function DashboardView({ data }) {
                     <h3><Wallet size={15} /> Renewal Terbaru</h3>
                     {recent_renewals.length === 0 ? <p className="admin-empty">Belum ada renewal.</p> : (
                         <table className="admin-table">
-                            <thead><tr><th>Order</th><th>Jumlah</th><th>Status</th><th>Waktu</th></tr></thead>
+                            <thead><tr><th>License</th><th>Durasi</th><th>Jumlah</th><th>Status</th><th>Waktu</th></tr></thead>
                             <tbody>
                                 {recent_renewals.map(r => (
                                     <tr key={r.order_id}>
-                                        <td data-label="Order" className="admin-mono">{r.order_id.slice(0, 14)}...</td>
+                                        <td data-label="License" className="admin-mono">{r.license_key ? r.license_key.slice(0, 12) + '…' : '-'}</td>
+                                        <td data-label="Durasi">+{r.duration_days || 0} hari</td>
                                         <td data-label="Jumlah">{fmtRp(r.amount)}</td>
                                         <td data-label="Status">{r.status === 'paid' ? <span className="badge badge-green">Paid</span> : r.status === 'pending' ? <span className="badge badge-amber">Pending</span> : <span className="badge badge-gray">Expired</span>}</td>
                                         <td data-label="Waktu">{fmtTime(r.created_at)}</td>
@@ -531,7 +569,7 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig 
             </div>
             <div className="admin-card">
                 <table className="admin-table">
-                    <thead><tr><th>Buyer</th><th>Key</th><th>Tier</th><th>Status</th><th>Deployment</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Buyer</th><th>Key</th><th>Akses</th><th>Status</th><th>Deployment</th><th>Aksi</th></tr></thead>
                     <tbody>
                         {filtered.map(l => (
                             <tr key={l.key}>
@@ -618,16 +656,22 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                                     <td data-label="Expired">{fmtDate(d.expires_at)}</td>
                                     <td data-label="Aksi">
                                         <div className="admin-actions">
-                                            {!cs.running && <button className="btn btn-success btn-xs" disabled={busy === `start-${d.container_name}`} onClick={() => onAction(d.container_name, 'start')} title="Start"><Play size={12} /></button>}
-                                            {cs.running && <button className="btn btn-danger btn-xs" disabled={busy === `stop-${d.container_name}`} onClick={() => onAction(d.container_name, 'stop')} title="Stop"><Square size={12} /></button>}
-                                            {cs.running && <button className="btn btn-outline btn-xs" disabled={busy === `restart-${d.container_name}`} onClick={() => onAction(d.container_name, 'restart')} title="Restart"><RotateCw size={12} /></button>}
-                                            <button className="btn btn-outline btn-xs" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')} title="Rebuild"><Hammer size={12} /></button>
-                                            <button className="btn btn-outline btn-xs" onClick={() => onLogs(d.container_name)} title="Logs"><ExternalLink size={12} /></button>
-                                            <button className="btn btn-outline btn-xs" onClick={() => onConfig(d)} title="Konfigurasi Bot"><Settings2 size={12} /></button>
-                                            <button className="btn btn-outline btn-xs" onClick={() => onTimer(d)} title="Set Expiry"><Clock size={12} /></button>
-                                            <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/export`} target="_blank" rel="noreferrer" title="Export"><Download size={12} /></a>
-                                            <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/backup`} target="_blank" rel="noreferrer" title="Backup DB"><Database size={12} /></a>
-                                            <button className="btn btn-danger btn-xs" disabled={busy === `delete-${d.container_name}`} onClick={() => onAction(d.container_name, 'delete')} title="Hapus"><Trash2 size={12} /></button>
+                                            <div className="admin-action-group" title="Kontrol container">
+                                                {!cs.running && <button className="btn btn-success btn-xs" disabled={busy === `start-${d.container_name}`} onClick={() => onAction(d.container_name, 'start')} title="Start container"><Play size={12} /><span className="act-label">Start</span></button>}
+                                                {cs.running && <button className="btn btn-danger btn-xs" disabled={busy === `stop-${d.container_name}`} onClick={() => onAction(d.container_name, 'stop')} title="Stop container"><Square size={12} /><span className="act-label">Stop</span></button>}
+                                                {cs.running && <button className="btn btn-outline btn-xs" disabled={busy === `restart-${d.container_name}`} onClick={() => onAction(d.container_name, 'restart')} title="Restart container"><RotateCw size={12} /><span className="act-label">Restart</span></button>}
+                                            </div>
+                                            <div className="admin-action-group" title="Konfigurasi">
+                                                <button className="btn btn-outline btn-xs" onClick={() => onConfig(d)} title="Konfigurasi bot (gateway, theme, banner, identitas)"><Settings2 size={12} /><span className="act-label">Config</span></button>
+                                                <button className="btn btn-outline btn-xs" onClick={() => onLogs(d.container_name)} title="Lihat log container"><ExternalLink size={12} /><span className="act-label">Logs</span></button>
+                                                <button className="btn btn-outline btn-xs" onClick={() => onTimer(d)} title="Atur tanggal expiry"><Clock size={12} /><span className="act-label">Expiry</span></button>
+                                                <button className="btn btn-outline btn-xs" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')} title="Rebuild container dari image terbaru"><Hammer size={12} /><span className="act-label">Rebuild</span></button>
+                                            </div>
+                                            <div className="admin-action-group" title="Data & backup">
+                                                <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/export`} target="_blank" rel="noreferrer" title="Export container (.tar.gz)"><Download size={12} /><span className="act-label">Export</span></a>
+                                                <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/backup`} target="_blank" rel="noreferrer" title="Backup database (store.db)"><Database size={12} /><span className="act-label">Backup</span></a>
+                                            </div>
+                                            <button className="btn btn-danger btn-xs" disabled={busy === `delete-${d.container_name}`} onClick={() => onAction(d.container_name, 'delete')} title="Hapus container (data permanen hilang)"><Trash2 size={12} /><span className="act-label">Hapus</span></button>
                                         </div>
                                     </td>
                                 </tr>

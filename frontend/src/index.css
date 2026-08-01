@@ -3225,3 +3225,134 @@ h3 {
     justify-content: center;
   }
 }
+
+/* ==================== REVISI: LICENSE RESULT TEMPLATE ==================== */
+.lic-result-ok {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--success-bg);
+  border: 1px solid rgba(5, 150, 105, 0.3);
+  color: var(--success);
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.9rem;
+}
+
+.lic-result-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+}
+
+.lic-result-meta > div {
+  background: var(--bg-elevated, rgba(14, 165, 233, 0.06));
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.75rem;
+}
+
+.lic-result-meta span {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 0.15rem;
+}
+
+.lic-result-meta strong {
+  font-size: 0.9rem;
+  color: var(--text-bright);
+  word-break: break-all;
+}
+
+.lic-template {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  resize: vertical;
+  min-height: 220px;
+  background: var(--bg-elevated, #f8fafc);
+}
+
+/* ==================== REVISI: AKSI DEPLOYMENT GROUP ==================== */
+.admin-action-group {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-right: 0.45rem;
+  border-right: 1px solid var(--border-card);
+}
+
+.admin-action-group:last-of-type {
+  border-right: none;
+}
+
+.admin-actions .btn-xs .act-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  margin-left: 0.15rem;
+}
+
+@media (max-width: 768px) {
+  .admin-action-group {
+    flex-wrap: wrap;
+    border-right: none;
+    padding-right: 0;
+    width: 100%;
+  }
+
+  .admin-actions .btn-xs .act-label {
+    display: none; /* mobile: cukup icon, title di tooltip */
+  }
+}
+
+/* ==================== REVISI: RENEW PAY BUTTON ==================== */
+.pay-action {
+  border-top: 1px dashed var(--border);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+/* ==================== REVISI: DEPLOY SUCCESS MOBILE ==================== */
+@media (max-width: 600px) {
+  .result-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+
+  .result-item > div {
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    width: 100%;
+  }
+
+  .result-item code,
+  .result-item .result-value {
+    font-size: 0.78rem;
+    word-break: break-all;
+  }
+
+  .instructions li {
+    font-size: 0.82rem;
+    word-break: break-all;
+  }
+
+  .instructions code {
+    word-break: break-all;
+    font-size: 0.75rem;
+  }
+
+  .lic-result-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .deploy-status-line {
+    gap: 0.6rem;
+  }
+}

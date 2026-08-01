@@ -2222,14 +2222,40 @@ h3 {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-md);
-  padding: 1.5rem;
+  padding: 1.25rem 1.4rem;
   width: 100%;
   max-width: 440px;
+  max-height: min(88vh, 780px);
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
 }
 
 .admin-modal-lg {
   max-width: 720px;
+}
+
+/* Body modal yang bisa di-scroll (konten panjang) */
+.admin-modal-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  margin: 0 -0.35rem;
+  padding: 0 0.35rem;
+  overscroll-behavior: contain;
+}
+
+.admin-modal-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-modal-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-card);
+  border-radius: 3px;
+}
+
+.admin-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-border);
 }
 
 .admin-modal h3 {
@@ -2414,18 +2440,22 @@ h3 {
 .config-section {
   border: 1px solid var(--border-card);
   border-radius: var(--radius-sm);
-  padding: 1rem 1.1rem;
-  margin-bottom: 1rem;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.7rem;
 }
 
 .config-section-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   font-weight: 700;
   color: var(--text-bright);
-  font-size: 0.88rem;
-  margin-bottom: 0.85rem;
+  font-size: 0.8rem;
+  margin-bottom: 0.65rem;
+}
+
+.config-section-title svg {
+  flex-shrink: 0;
 }
 
 .config-current {
@@ -2442,7 +2472,21 @@ h3 {
 .config-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.6rem 0.9rem;
+  gap: 0.45rem 0.7rem;
+}
+
+.config-section .form-group {
+  margin-bottom: 0.45rem;
+}
+
+.config-section .form-label {
+  font-size: 0.72rem;
+  margin-bottom: 0.25rem;
+}
+
+.config-section .form-input {
+  padding: 0.42rem 0.6rem;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 600px) {
@@ -2452,14 +2496,23 @@ h3 {
 /* Tombol aksi per section: Save / Save & Restart */
 .config-actions {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.6rem;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
   flex-wrap: wrap;
 }
 
+.config-actions .btn-sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+}
+
 .config-saveall {
-  border-color: var(--accent-border);
-  background: var(--accent-bg);
+  border-top: 1px solid var(--border-card);
+  background: var(--bg-elevated);
+  padding: 0.75rem 0.9rem;
+  margin: 0.5rem -1.4rem -1.25rem;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  flex-shrink: 0;
 }
 
 .config-saveall .config-actions {

@@ -856,125 +856,124 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                     </div>
                 ) : (
                     <>
-                        {/* IDENTITAS */}
-                        <div className="config-section">
-                            <div className="config-section-title"><Store size={15} /> Identitas Bot</div>
-                            <div className="config-grid">
-                                <div className="form-group">
-                                    <label className="form-label">Nama Toko</label>
-                                    <input className="form-input" value={form.store_name || ''} onChange={set('store_name')} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Prefix Order</label>
-                                    <input className="form-input" value={form.order_prefix || ''} onChange={set('order_prefix')} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Support Username</label>
-                                    <input className="form-input" placeholder="tanpa @" value={form.support_username || ''} onChange={set('support_username')} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Support Hours</label>
-                                    <input className="form-input" placeholder="09:00 - 23:00 WIB" value={form.support_hours || ''} onChange={set('support_hours')} />
-                                </div>
-                            </div>
-                            <SectionActions saving={saving === 'identitas'} onSave={() => saveIdentitas(false)} onSaveRestart={() => saveIdentitas(true)} />
-                        </div>
-
-                        {/* ADMIN PANEL */}
-                        <div className="config-section">
-                            <div className="config-section-title"><ShieldCheck size={15} /> Admin Panel</div>
-                            <div className="config-grid">
-                                <div className="form-group">
-                                    <label className="form-label">Password Admin Panel</label>
-                                    <input className="form-input" type="password" placeholder="••••••••" value={form.admin_panel_password || ''} onChange={set('admin_panel_password')} />
-                                </div>
-                            </div>
-                            <SectionActions saving={saving === 'adminpass'} onSave={() => saveAdminPass(false)} onSaveRestart={() => saveAdminPass(true)} />
-                        </div>
-
-                        {/* PAYMENT GATEWAY */}
-                        <div className="config-section">
-                            <div className="config-section-title">
-                                <Wallet size={15} /> Payment Gateway
-                                <span className="config-current">
-                                    {activeGw ? PROVIDERS.find(p => p.value === activeGw.provider)?.label || activeGw.provider : 'Belum aktif'}
-                                </span>
-                            </div>
-                            <div className="form-group">
-                                <select className="form-input" value={provider} onChange={e => { setProvider(e.target.value); setCreds({}) }}>
-                                    <option value="">Pilih Provider</option>
-                                    {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                                </select>
-                            </div>
-                            {selectedProvider ? (
+                        {/* Konten scrollable */}
+                        <div className="admin-modal-scroll">
+                            {/* IDENTITAS */}
+                            <div className="config-section">
+                                <div className="config-section-title"><Store size={15} /> Identitas Bot</div>
                                 <div className="config-grid">
-                                    {selectedProvider.fields.map(f => (
-                                        <div className="form-group" key={f.key}>
-                                            <label className="form-label">{f.label}</label>
-                                            <input className="form-input" type={f.type} value={creds[f.key] || ''} onChange={e => setCreds(prev => ({ ...prev, [f.key]: e.target.value }))} />
-                                        </div>
-                                    ))}
+                                    <div className="form-group">
+                                        <label className="form-label">Nama Toko</label>
+                                        <input className="form-input" value={form.store_name || ''} onChange={set('store_name')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Prefix Order</label>
+                                        <input className="form-input" value={form.order_prefix || ''} onChange={set('order_prefix')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Support Username</label>
+                                        <input className="form-input" placeholder="tanpa @" value={form.support_username || ''} onChange={set('support_username')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Support Hours</label>
+                                        <input className="form-input" placeholder="09:00 - 23:00 WIB" value={form.support_hours || ''} onChange={set('support_hours')} />
+                                    </div>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="form-group">
-                                        <label className="form-label">PaKasir API Key</label>
-                                        <input className="form-input" type="password" value={form.pakasir_api_key || ''} onChange={set('pakasir_api_key')} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">PaKasir Slug</label>
-                                        <input className="form-input" value={form.pakasir_slug || ''} onChange={set('pakasir_slug')} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">WijayaPay Code Merchant</label>
-                                        <input className="form-input" value={form.wijayapay_code_merchant || ''} onChange={set('wijayapay_code_merchant')} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">WijayaPay API Key</label>
-                                        <input className="form-input" type="password" value={form.wijayapay_api_key || ''} onChange={set('wijayapay_api_key')} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">KlikQRIS API Key</label>
-                                        <input className="form-input" type="password" value={form.klikqris_api_key || ''} onChange={set('klikqris_api_key')} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">KlikQRIS Merchant ID</label>
-                                        <input className="form-input" value={form.klikqris_merchant_id || ''} onChange={set('klikqris_merchant_id')} />
-                                    </div>
-                                </>
-                            )}
-                            {selectedProvider && (
-                                <SectionActions saving={saving === 'gw'} onSave={() => saveGateway(false)} onSaveRestart={() => saveGateway(true)} />
-                            )}
-                        </div>
-
-                        {/* THEME QRIS */}
-                        <div className="config-section">
-                            <div className="config-section-title"><Settings2 size={15} /> Theme QRIS</div>
-                            <div className="form-group">
-                                <select className="form-input" value={form.theme_preset || ''} onChange={set('theme_preset')}>
-                                    <option value="">Pilih Preset</option>
-                                    {['qris-1', 'qris-2', 'qris-3'].map(id => <option key={id} value={id}>{id}</option>)}
-                                </select>
+                                <SectionActions saving={saving === 'identitas'} onSave={() => saveIdentitas(false)} onSaveRestart={() => saveIdentitas(true)} />
                             </div>
-                            <SectionActions saving={saving === 'theme'} onSave={() => saveTheme(false)} onSaveRestart={() => saveTheme(true)} />
-                        </div>
 
-                        {/* BANNER */}
-                        <div className="config-section">
-                            <div className="config-section-title"><Database size={15} /> Banner Toko</div>
-                            <div className="form-group">
-                                <input className="form-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => setBannerFile(e.target.files[0])} />
+                            {/* ADMIN PANEL */}
+                            <div className="config-section">
+                                <div className="config-section-title"><ShieldCheck size={15} /> Admin Panel</div>
+                                <div className="config-grid">
+                                    <div className="form-group">
+                                        <label className="form-label">Password Admin Panel</label>
+                                        <input className="form-input" type="password" placeholder="••••••••" value={form.admin_panel_password || ''} onChange={set('admin_panel_password')} />
+                                    </div>
+                                </div>
+                                <SectionActions saving={saving === 'adminpass'} onSave={() => saveAdminPass(false)} onSaveRestart={() => saveAdminPass(true)} />
                             </div>
-                            <SectionActions saving={saving === 'banner'} onSave={() => saveBanner(false)} onSaveRestart={() => saveBanner(true)} disabled={!bannerFile} />
+
+                            {/* PAYMENT GATEWAY */}
+                            <div className="config-section">
+                                <div className="config-section-title">
+                                    <Wallet size={15} /> Payment Gateway
+                                    <span className="config-current">
+                                        {activeGw ? PROVIDERS.find(p => p.value === activeGw.provider)?.label || activeGw.provider : 'Belum aktif'}
+                                    </span>
+                                </div>
+                                <div className="form-group">
+                                    <select className="form-input" value={provider} onChange={e => { setProvider(e.target.value); setCreds({}) }}>
+                                        <option value="">Pilih Provider</option>
+                                        {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                                    </select>
+                                </div>
+                                {selectedProvider ? (
+                                    <div className="config-grid">
+                                        {selectedProvider.fields.map(f => (
+                                            <div className="form-group" key={f.key}>
+                                                <label className="form-label">{f.label}</label>
+                                                <input className="form-input" type={f.type} value={creds[f.key] || ''} onChange={e => setCreds(prev => ({ ...prev, [f.key]: e.target.value }))} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="form-group">
+                                            <label className="form-label">PaKasir API Key</label>
+                                            <input className="form-input" type="password" value={form.pakasir_api_key || ''} onChange={set('pakasir_api_key')} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">PaKasir Slug</label>
+                                            <input className="form-input" value={form.pakasir_slug || ''} onChange={set('pakasir_slug')} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">WijayaPay Code Merchant</label>
+                                            <input className="form-input" value={form.wijayapay_code_merchant || ''} onChange={set('wijayapay_code_merchant')} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">WijayaPay API Key</label>
+                                            <input className="form-input" type="password" value={form.wijayapay_api_key || ''} onChange={set('wijayapay_api_key')} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">KlikQRIS API Key</label>
+                                            <input className="form-input" type="password" value={form.klikqris_api_key || ''} onChange={set('klikqris_api_key')} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">KlikQRIS Merchant ID</label>
+                                            <input className="form-input" value={form.klikqris_merchant_id || ''} onChange={set('klikqris_merchant_id')} />
+                                        </div>
+                                    </>
+                                )}
+                                {selectedProvider && (
+                                    <SectionActions saving={saving === 'gw'} onSave={() => saveGateway(false)} onSaveRestart={() => saveGateway(true)} />
+                                )}
+                            </div>
+
+                            {/* THEME QRIS */}
+                            <div className="config-section">
+                                <div className="config-section-title"><Settings2 size={15} /> Theme QRIS</div>
+                                <div className="form-group">
+                                    <select className="form-input" value={form.theme_preset || ''} onChange={set('theme_preset')}>
+                                        <option value="">Pilih Preset</option>
+                                        {['qris-1', 'qris-2', 'qris-3'].map(id => <option key={id} value={id}>{id}</option>)}
+                                    </select>
+                                </div>
+                                <SectionActions saving={saving === 'theme'} onSave={() => saveTheme(false)} onSaveRestart={() => saveTheme(true)} />
+                            </div>
+
+                            {/* BANNER */}
+                            <div className="config-section">
+                                <div className="config-section-title"><Database size={15} /> Banner Toko</div>
+                                <div className="form-group">
+                                    <input className="form-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => setBannerFile(e.target.files[0])} />
+                                </div>
+                                <SectionActions saving={saving === 'banner'} onSave={() => saveBanner(false)} onSaveRestart={() => saveBanner(true)} disabled={!bannerFile} />
+                            </div>
                         </div>
 
-                        {/* SAVE ALL */}
-                        <div className="config-section config-saveall">
-                            <div className="config-section-title"><CheckCircle2 size={15} /> Simpan Semua</div>
-                            <p className="form-hint" style={{ marginBottom: '0.6rem' }}>
-                                Simpan semua perubahan di atas sekaligus. Restart belakangan kalau masih mau edit dulu.
-                            </p>
+                        {/* FOOTER SAVE ALL (sticky) */}
+                        <div className="config-saveall">
                             <div className="config-actions">
                                 <button className="btn btn-outline" onClick={() => saveAll(false)} disabled={isSaving}>
                                     {saving === 'all' ? <><Loader2 className="spin" size={14} /> Menyimpan...</> : <><Save size={14} /> Save All</>}

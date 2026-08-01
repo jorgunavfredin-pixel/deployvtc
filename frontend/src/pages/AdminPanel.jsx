@@ -311,6 +311,7 @@ export default function AdminPanel({ onLogout }) {
                                     onNew={() => setShowNewLic(true)}
                                     onChangeTier={changeTier}
                                     onRevoke={revokeLicense}
+                                    onConfig={openConfig}
                                 />
                             )}
                             {tab === 'deployments' && (
@@ -501,7 +502,7 @@ function DashboardView({ data }) {
 
 // ==================== LICENSES ====================
 
-function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke }) {
+function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig }) {
     const [filter, setFilter] = useState('all')
     const [q, setQ] = useState('')
     const filtered = licenses.filter(l => {
@@ -546,11 +547,18 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke }) {
                                     {l.deployment ? <span className="admin-mono" style={{ fontSize: '0.75rem' }}>{l.deployment.container_name} :{l.deployment.port}</span> : <span className="admin-dim">—</span>}
                                 </td>
                                 <td>
-                                    {l.status !== 'revoked' && (
-                                        <button className="btn btn-danger btn-xs" disabled={busy === `revoke-${l.key}`} onClick={() => onRevoke(l.key, l.buyer_name)}>
-                                            {busy === `revoke-${l.key}` ? <Loader2 className="spin" size={12} /> : <Trash2 size={12} />} Revoke
-                                        </button>
-                                    )}
+                                    <div className="admin-actions">
+                                        {l.deployment && (
+                                            <button className="btn btn-outline btn-xs" onClick={() => onConfig(l.deployment)} title="Konfigurasi Bot">
+                                                <Settings2 size={12} /> Config
+                                            </button>
+                                        )}
+                                        {l.status !== 'revoked' && (
+                                            <button className="btn btn-danger btn-xs" disabled={busy === `revoke-${l.key}`} onClick={() => onRevoke(l.key, l.buyer_name)}>
+                                                {busy === `revoke-${l.key}` ? <Loader2 className="spin" size={12} /> : <Trash2 size={12} />} Revoke
+                                            </button>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))}

@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import Landing from './pages/Landing'
 import Deploy from './pages/Deploy'
 import Renew from './pages/Renew'
-import Manage from './pages/Manage'
 import AdminLogin from './pages/AdminLogin'
 import AdminPanel from './pages/AdminPanel'
 
@@ -54,7 +53,6 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/deploy" element={<Deploy />} />
         <Route path="/renew" element={<Renew />} />
-        <Route path="/manage" element={<Manage />} />
         {/* /admin → Fake404. /admin-xxx tidak bisa match pattern route (v7),
             jadi tangani lewat route khusus di bawah dengan pathname check */}
         <Route path="/admin" element={<Fake404 />} />

@@ -30,6 +30,7 @@ function AdminRoute() {
 
 // /admin publik → fake 404 (kayak halaman gak ada).
 // Panel asli hanya di /admin-<random> (path rahasia).
+// Route /admin/* menangkap /admin dan /admin-xxx sekaligus.
 function AdminGuard() {
     const location = useLocation()
     const isSecretPath = location.pathname.startsWith('/admin-')
@@ -62,8 +63,7 @@ function App() {
         <Route path="/deploy" element={<Deploy />} />
         <Route path="/renew" element={<Renew />} />
         <Route path="/manage" element={<Manage />} />
-        <Route path="/admin" element={<AdminGuard />} />
-        <Route path="/admin-*" element={<AdminRoute />} />
+        <Route path="/admin/*" element={<AdminGuard />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

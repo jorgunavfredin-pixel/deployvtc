@@ -205,12 +205,13 @@ router.get('/api/admin/licenses', requireAuth, adminLimiter, (req, res) => {
  */
 router.post('/api/admin/licenses', requireAuth, adminLimiter, (req, res) => {
     try {
-        const { buyer_name, tier } = req.body || {};
+        const { buyer_name, tier, initial_days } = req.body || {};
         if (!buyer_name || !String(buyer_name).trim()) {
             return res.status(400).json({ success: false, error: 'Nama buyer wajib diisi' });
         }
         const validTier = tier === 'chat' ? 'chat' : 'full';
-        const license = db.createLicense(String(buyer_name).trim(), '', validTier);
+        const days = parseInt(initial_days) > 0 ? parseInt(initial_days) : 30;
+        const license = db.createLicense(String(buyer_name).trim(), '', validTier, days);
         res.json({ success: true, license });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });

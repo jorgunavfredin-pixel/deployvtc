@@ -58,7 +58,8 @@ export default function AdminPanel({ onLogout }) {
     const [showNewLic, setShowNewLic] = useState(false)
     const [newLicName, setNewLicName] = useState('')
     const [newLicTier, setNewLicTier] = useState('full')
-    const [newLicResult, setNewLicResult] = useState(null) // { key, buyer_name, tier } setelah dibuat
+    const [newLicDays, setNewLicDays] = useState(30)
+    const [newLicResult, setNewLicResult] = useState(null) // { key, buyer_name, tier, days } setelah dibuat
     const [creating, setCreating] = useState(false)
 
     // Timer modal
@@ -146,10 +147,10 @@ export default function AdminPanel({ onLogout }) {
         try {
             const d = await api('/api/admin/licenses', {
                 method: 'POST',
-                body: JSON.stringify({ buyer_name: newLicName.trim(), tier: newLicTier })
+                body: JSON.stringify({ buyer_name: newLicName.trim(), tier: newLicTier, initial_days: newLicDays })
             })
             notify(`License dibuat: ${d.license.key}`)
-            setNewLicResult({ key: d.license.key, buyer_name: newLicName.trim(), tier: newLicTier })
+            setNewLicResult({ key: d.license.key, buyer_name: newLicName.trim(), tier: newLicTier, days: newLicDays })
             setNewLicName('')
             await loadLicenses(); await loadDashboard()
         } catch (e) { notify(e.message, 'err') }
@@ -344,6 +345,7 @@ export default function AdminPanel({ onLogout }) {
                                 <div className="lic-result-meta">
                                     <div><span>Buyer</span><strong>{newLicResult.buyer_name}</strong></div>
                                     <div><span>Akses</span><strong>{newLicResult.tier === 'full' ? 'Web + Chat' : 'Chat saja'}</strong></div>
+                                    <div><span>Durasi Awal</span><strong>{newLicResult.days} hari</strong></div>
                                 </div>
                                 <label className="form-label">Template pesan untuk buyer — tinggal copy & kirim</label>
                                 <textarea className="form-input lic-template" readOnly rows={12} onFocus={e => e.target.select()}
@@ -355,6 +357,7 @@ License bot kamu sudah jadi, berikut detailnya:
 ${newLicResult.key}
 
 ✅ Akses: ${newLicResult.tier === 'full' ? 'Full (Web + Chat)' : 'Chat saja'}
+⏳ Durasi Awal: ${newLicResult.days} hari
 
 📌 Cara Deploy:
 1. Buka link berikut di HP/PC kamu
@@ -386,6 +389,19 @@ Kalau butuh bantuan, balas chat ini ya! 🙏`} />
                                         <option value="chat">Chat saja</option>
                                     </select>
                                     <span className="form-hint">Web + Chat: akses penuh (web admin + bot chat). Chat saja: hanya bot chat.</span>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Durasi Awal (hari)</label>
+                                    <input
+                                        className="form-input"
+                                        type="number"
+                                        min="1"
+                                        max="3650"
+                                        placeholder="30"
+                                        value={newLicDays}
+                                        onChange={e => setNewLicDays(parseInt(e.target.value) || 0)}
+                                    />
+                                    <span className="form-hint">Durasi license saat pertama deploy. Setelah habis, buyer renew lewat flow yang ada. Contoh giveaway: 1 atau 7 hari.</span>
                                 </div>
                                 <div className="admin-modal-actions">
                                     <button className="btn btn-outline" onClick={() => setShowNewLic(false)}>Batal</button>
@@ -569,18 +585,19 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig 
             </div>
             <div className="admin-card">
                 <table className="admin-table">
-                    <thead><tr><th>Buyer</th><th>Key</th><th>Akses</th><th>Status</th><th>Deployment</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Buyer</th><th>Key</th><th>Akses</th><th>Durasi</th><th>Status</th><th>Deployment</th><th>Aksi</th></tr></thead>
                     <tbody>
                         {filtered.map(l => (
                             <tr key={l.key}>
                                 <td data-label="Buyer"><strong>{l.buyer_name || '-'}</strong></td>
                                 <td data-label="Key" className="admin-mono">{l.key}</td>
-                                <td data-label="Tier">
+                                <td data-label="Akses">
                                     <select className="admin-inline-select" value={l.tier} disabled={busy === `tier-${l.key}`} onChange={e => onChangeTier(l.key, e.target.value)}>
                                         <option value="full">Full</option>
                                         <option value="chat">Chat</option>
                                     </select>
                                 </td>
+                                <td data-label="Durasi">{l.initial_days ? `${l.initial_days} hr` : '30 hr'}</td>
                                 <td data-label="Status"><LicStatusBadge status={l.status} /></td>
                                 <td data-label="Deployment">
                                     {l.deployment ? <span className="admin-mono" style={{ fontSize: '0.75rem' }}>{l.deployment.container_name} :{l.deployment.port}</span> : <span className="admin-dim">—</span>}

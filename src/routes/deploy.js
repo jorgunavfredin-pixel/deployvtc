@@ -183,7 +183,8 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             container_name: result.containerName,
             port,
             store_name: store_name.trim(),
-            bot_token: bot_token.trim().slice(0, 10) + '...'
+            bot_token: bot_token.trim().slice(0, 10) + '...',
+            initial_days: licenseCheck.license.initial_days
         });
 
         // Cleanup uploaded banner temp file

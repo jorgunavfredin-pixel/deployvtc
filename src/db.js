@@ -15,6 +15,7 @@ db.exec(`
     telegram_id TEXT,
     tier TEXT DEFAULT 'full',
     status TEXT DEFAULT 'unused',
+    initial_days INTEGER DEFAULT 30,
     created_at TEXT,
     used_at TEXT
   );
@@ -47,6 +48,7 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_lic_key ON licenses(key);
+
   CREATE INDEX IF NOT EXISTS idx_dep_license ON deployments(license_key);
   CREATE INDEX IF NOT EXISTS idx_dep_port ON deployments(port);
   CREATE INDEX IF NOT EXISTS idx_renewal_license ON renewals(license_key);
@@ -61,6 +63,14 @@ try {
   console.log('[DB] Added tier column to licenses');
 }
 
+// Migration: tambah kolom initial_days ke licenses (durasi awal deploy)
+try {
+  db.prepare('SELECT initial_days FROM licenses LIMIT 1').get();
+} catch (e) {
+  db.exec('ALTER TABLE licenses ADD COLUMN initial_days INTEGER DEFAULT 30');
+  console.log('[DB] Added initial_days column to licenses');
+}
+
 // ==================== LICENSE ====================
 
 const generateLicenseKey = () => {
@@ -73,13 +83,14 @@ const generateLicenseKey = () => {
     return key.match(/.{4}/g).join('-');
 };
 
-const createLicense = (buyerName = '', telegramId = '', tier = 'full') => {
+const createLicense = (buyerName = '', telegramId = '', tier = 'full', initialDays = 30) => {
     const key = generateLicenseKey();
     const created_at = new Date().toISOString();
     const validTier = tier === 'chat' ? 'chat' : 'full';
-    db.prepare('INSERT INTO licenses (key, buyer_name, telegram_id, tier, status, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(key, buyerName, telegramId, validTier, 'unused', created_at);
-    return { key, buyer_name: buyerName, telegram_id: telegramId, tier: validTier, status: 'unused', created_at };
+    const days = parseInt(initialDays) > 0 ? parseInt(initialDays) : 30;
+    db.prepare('INSERT INTO licenses (key, buyer_name, telegram_id, tier, status, initial_days, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(key, buyerName, telegramId, validTier, 'unused', days, created_at);
+    return { key, buyer_name: buyerName, telegram_id: telegramId, tier: validTier, status: 'unused', initial_days: days, created_at };
 };
 
 const validateLicense = (key) => {
@@ -150,7 +161,9 @@ const sanitizeContainerName = (buyerName) => {
 
 const createDeployment = (data) => {
     const created_at = new Date().toISOString();
-    const expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days
+    // Durasi awal dari license (initial_days), fallback 30 hari
+    const days = parseInt(data.initial_days) > 0 ? parseInt(data.initial_days) : 30;
+    const expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     const result = db.prepare(
         'INSERT INTO deployments (license_id, license_key, buyer_name, container_name, port, store_name, bot_token, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(data.license_id, data.license_key, data.buyer_name || '', data.container_name, data.port, data.store_name, data.bot_token, 'running', created_at, expires_at);

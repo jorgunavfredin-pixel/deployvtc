@@ -221,6 +221,14 @@ const markRenewalPaid = (orderId, paidAt) => {
     return getRenewalByOrderId(orderId);
 };
 
+const getAllRenewals = (limit = 10) => {
+    return db.prepare('SELECT * FROM renewals ORDER BY created_at DESC LIMIT ?').all(limit);
+};
+
+const getPaidRenewalTotal = () => {
+    return db.prepare("SELECT SUM(amount) as total FROM renewals WHERE status = 'paid'").get().total || 0;
+};
+
 /**
  * Extend deployment expiry by N days (base = expiry sekarang, bukan hari ini).
  */
@@ -274,6 +282,8 @@ module.exports = {
     createRenewal,
     getRenewalByOrderId,
     getRenewalsByLicense,
+    getAllRenewals,
+    getPaidRenewalTotal,
     markRenewalPaid,
     extendDeploymentExpiry
 };

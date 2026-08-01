@@ -656,6 +656,8 @@ function ConfigModal({ dep, data, onClose, onDone }) {
         if (!data?.config) return
         const c = data.config
         setForm({
+            bot_token: c.bot_token || '',
+            admin_telegram_id: c.admin_telegram_id || '',
             store_name: c.store_name || '',
             order_prefix: c.order_prefix || '',
             support_username: c.support_username || '',
@@ -698,6 +700,21 @@ function ConfigModal({ dep, data, onClose, onDone }) {
     }
 
     // ==================== SAVE PER SECTION ====================
+    const saveBotTelegram = async (restart) => {
+        setSaving('bottg')
+        try {
+            const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/env`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: envFor(['BOT_TOKEN', 'ADMIN_TELEGRAM_ID']), restart })
+            })
+            const d = await res.json()
+            if (!d.success) throw new Error(d.error)
+            notifyLocal(restart ? 'Bot Telegram disimpan + restart' : 'Bot Telegram disimpan (belum restart)')
+            onDone()
+        } catch (e) { notifyLocal(e.message, 'err') }
+        setSaving('')
+    }
+
     const saveIdentitas = async (restart) => {
         setSaving('identitas')
         try {
@@ -781,7 +798,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
         setSaving('all')
         const errors = []
         const envPatch = {
-            ...envFor(['STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_USERNAME', 'SUPPORT_HOURS', 'ADMIN_PANEL_PASSWORD', 'THEME_PRESET']),
+            ...envFor(['BOT_TOKEN', 'ADMIN_TELEGRAM_ID', 'STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_USERNAME', 'SUPPORT_HOURS', 'ADMIN_PANEL_PASSWORD', 'THEME_PRESET']),
             PAKASIR_API_KEY: form.pakasir_api_key || '',
             PAKASIR_SLUG: form.pakasir_slug || '',
             WIJAYAPAY_CODE_MERCHANT: form.wijayapay_code_merchant || '',
@@ -858,6 +875,22 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                     <>
                         {/* Konten scrollable */}
                         <div className="admin-modal-scroll">
+                            {/* BOT TELEGRAM */}
+                            <div className="config-section">
+                                <div className="config-section-title"><Settings2 size={15} /> Bot Telegram</div>
+                                <div className="config-grid">
+                                    <div className="form-group">
+                                        <label className="form-label">Bot Token</label>
+                                        <input className="form-input" type="password" placeholder="123456:ABC-DEF..." value={form.bot_token || ''} onChange={set('bot_token')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Admin Telegram ID</label>
+                                        <input className="form-input" placeholder="123456789" value={form.admin_telegram_id || ''} onChange={set('admin_telegram_id')} />
+                                    </div>
+                                </div>
+                                <SectionActions saving={saving === 'bottg'} onSave={() => saveBotTelegram(false)} onSaveRestart={() => saveBotTelegram(true)} />
+                            </div>
+
                             {/* IDENTITAS */}
                             <div className="config-section">
                                 <div className="config-section-title"><Store size={15} /> Identitas Bot</div>

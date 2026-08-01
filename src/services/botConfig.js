@@ -110,6 +110,8 @@ const getBotConfig = (containerName) => {
         banners: getBannerFiles(containerName),
         // Semua field yang bisa di-edit (seperti deploy awal)
         config: {
+            bot_token: env.BOT_TOKEN || '',
+            admin_telegram_id: env.ADMIN_TELEGRAM_ID || '',
             store_name: env.STORE_NAME || '',
             support_username: env.SUPPORT_USERNAME || '',
             support_hours: env.SUPPORT_HOURS || '',

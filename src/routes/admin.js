@@ -521,10 +521,13 @@ router.post('/api/admin/backup-all', requireAuth, adminLimiter, async (req, res)
 
 const botConfig = require('../services/botConfig');
 
-// Helper: restart container kalau diminta (default: ya)
+// Helper: recreate container kalau diminta (default: ya).
+// Recreate (bukan restart) penting: env Docker di-bake saat create,
+// jadi perubahan .env (BOT_TOKEN/ADMIN_ID/password/dll) cuma kebaca
+// setelah container dibuat ulang dari .env terbaru.
 const maybeRestart = (name, restart) => {
     if (restart !== false) {
-        dockerEngine.restartBot(name).catch(() => { });
+        dockerEngine.recreateBot(name).catch(() => { });
         return true;
     }
     return false;

@@ -3279,35 +3279,72 @@ h3 {
   background: var(--bg-elevated, #f8fafc);
 }
 
-/* ==================== REVISI: AKSI DEPLOYMENT GROUP ==================== */
-.admin-action-group {
+/* ==================== REVISI: AKSI DEPLOYMENT GRID 3x3 ==================== */
+.admin-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  gap: 0.4rem;
+  min-width: 240px;
+}
+
+.act-btn {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.3rem;
-  padding-right: 0.45rem;
-  border-right: 1px solid var(--border-card);
-}
-
-.admin-action-group:last-of-type {
-  border-right: none;
-}
-
-.admin-actions .btn-xs .act-label {
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.3rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-hover);
+  color: var(--text-bright);
   font-size: 0.68rem;
-  font-weight: 600;
-  margin-left: 0.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  min-height: 52px;
+}
+
+.act-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.act-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.act-btn.btn-success {
+  background: rgba(5, 150, 105, 0.1);
+  color: #059669;
+  border-color: rgba(5, 150, 105, 0.3);
+}
+
+.act-btn.btn-danger {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.act-btn.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 @media (max-width: 768px) {
-  .admin-action-group {
-    flex-wrap: wrap;
-    border-right: none;
-    padding-right: 0;
+  .admin-actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+    min-width: 0;
     width: 100%;
   }
 
-  .admin-actions .btn-xs .act-label {
-    display: none; /* mobile: cukup icon, title di tooltip */
+  .act-btn {
+    min-height: 48px;
+    font-size: 0.64rem;
   }
 }
 

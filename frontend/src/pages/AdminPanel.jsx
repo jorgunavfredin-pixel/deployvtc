@@ -655,23 +655,16 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                                     <td data-label="Uptime">{cs.uptime ? `${Math.floor(cs.uptime / 60)}m` : '-'}</td>
                                     <td data-label="Expired">{fmtDate(d.expires_at)}</td>
                                     <td data-label="Aksi">
-                                        <div className="admin-actions">
-                                            <div className="admin-action-group" title="Kontrol container">
-                                                {!cs.running && <button className="btn btn-success btn-xs" disabled={busy === `start-${d.container_name}`} onClick={() => onAction(d.container_name, 'start')} title="Start container"><Play size={12} /><span className="act-label">Start</span></button>}
-                                                {cs.running && <button className="btn btn-danger btn-xs" disabled={busy === `stop-${d.container_name}`} onClick={() => onAction(d.container_name, 'stop')} title="Stop container"><Square size={12} /><span className="act-label">Stop</span></button>}
-                                                {cs.running && <button className="btn btn-outline btn-xs" disabled={busy === `restart-${d.container_name}`} onClick={() => onAction(d.container_name, 'restart')} title="Restart container"><RotateCw size={12} /><span className="act-label">Restart</span></button>}
-                                            </div>
-                                            <div className="admin-action-group" title="Konfigurasi">
-                                                <button className="btn btn-outline btn-xs" onClick={() => onConfig(d)} title="Konfigurasi bot (gateway, theme, banner, identitas)"><Settings2 size={12} /><span className="act-label">Config</span></button>
-                                                <button className="btn btn-outline btn-xs" onClick={() => onLogs(d.container_name)} title="Lihat log container"><ExternalLink size={12} /><span className="act-label">Logs</span></button>
-                                                <button className="btn btn-outline btn-xs" onClick={() => onTimer(d)} title="Atur tanggal expiry"><Clock size={12} /><span className="act-label">Expiry</span></button>
-                                                <button className="btn btn-outline btn-xs" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')} title="Rebuild container dari image terbaru"><Hammer size={12} /><span className="act-label">Rebuild</span></button>
-                                            </div>
-                                            <div className="admin-action-group" title="Data & backup">
-                                                <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/export`} target="_blank" rel="noreferrer" title="Export container (.tar.gz)"><Download size={12} /><span className="act-label">Export</span></a>
-                                                <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/backup`} target="_blank" rel="noreferrer" title="Backup database (store.db)"><Database size={12} /><span className="act-label">Backup</span></a>
-                                            </div>
-                                            <button className="btn btn-danger btn-xs" disabled={busy === `delete-${d.container_name}`} onClick={() => onAction(d.container_name, 'delete')} title="Hapus container (data permanen hilang)"><Trash2 size={12} /><span className="act-label">Hapus</span></button>
+                                        <div className="admin-actions-grid">
+                                            <button className="act-btn btn-success" disabled={busy === `start-${d.container_name}` || cs.running} onClick={() => onAction(d.container_name, 'start')} title="Start container"><Play size={14} /><span>Start</span></button>
+                                            <button className="act-btn btn-danger" disabled={busy === `stop-${d.container_name}` || !cs.running} onClick={() => onAction(d.container_name, 'stop')} title="Stop container"><Square size={14} /><span>Stop</span></button>
+                                            <button className="act-btn btn-outline" disabled={busy === `restart-${d.container_name}` || !cs.running} onClick={() => onAction(d.container_name, 'restart')} title="Restart container"><RotateCw size={14} /><span>Restart</span></button>
+                                            <button className="act-btn btn-outline" onClick={() => onConfig(d)} title="Konfigurasi bot (gateway, theme, banner, identitas)"><Settings2 size={14} /><span>Config</span></button>
+                                            <button className="act-btn btn-outline" onClick={() => onLogs(d.container_name)} title="Lihat log container"><ExternalLink size={14} /><span>Logs</span></button>
+                                            <button className="act-btn btn-outline" onClick={() => onTimer(d)} title="Atur tanggal expiry"><Clock size={14} /><span>Expiry</span></button>
+                                            <a className="act-btn btn-outline" href={`/api/admin/deployments/${d.container_name}/export`} target="_blank" rel="noreferrer" title="Export container (.tar.gz)"><Download size={14} /><span>Export</span></a>
+                                            <a className="act-btn btn-outline" href={`/api/admin/deployments/${d.container_name}/backup`} target="_blank" rel="noreferrer" title="Backup database (store.db)"><Database size={14} /><span>Backup</span></a>
+                                            <button className="act-btn btn-danger" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')} title="Rebuild container dari image terbaru"><Hammer size={14} /><span>Rebuild</span></button>
                                         </div>
                                     </td>
                                 </tr>

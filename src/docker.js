@@ -130,13 +130,84 @@ const stopBot = async (containerName) => {
 };
 
 /**
- * Restart a bot container
+ * Restart a bot container (tanpa ganti env — untuk tombol Restart manual)
  */
 const restartBot = async (containerName) => {
     try {
         const container = docker.getContainer(containerName);
         await container.restart();
         return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+};
+
+// Helper: baca .env jadi object env vars (dipakai recreate/rebuild)
+const readEnvFile = (buyerDir) => {
+    const envFile = path.join(buyerDir, '.env');
+    if (!fs.existsSync(envFile)) return null;
+    const envContent = fs.readFileSync(envFile, 'utf-8');
+    const envVars = {};
+    for (const line of envContent.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex === -1) continue;
+        const key = trimmed.slice(0, eqIndex).trim();
+        let val = trimmed.slice(eqIndex + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+        }
+        envVars[key] = val;
+    }
+    return envVars;
+};
+
+/**
+ * Recreate bot container dari .env terbaru (env baru langsung kebaca).
+ * Data (db/assets/logs) tetap aman karena volume bind.
+ * Dipakai oleh "Save & Restart" di konfigurasi bot.
+ */
+const recreateBot = async (containerName) => {
+    const dataDir = process.env.DATA_DIR || '/root/data';
+    const buyerDir = path.join(dataDir, containerName);
+    try {
+        const envVars = readEnvFile(buyerDir);
+        if (!envVars) return { success: false, error: '.env file not found in data folder' };
+
+        // Extract port dari WEBHOOK_URL atau nama container
+        let port = envVars.WEBHOOK_URL
+            ? new URL(envVars.WEBHOOK_URL).port
+            : containerName.split('-').pop();
+
+        // Stop & remove container lama (data tetap karena volume)
+        try {
+            const oldContainer = docker.getContainer(containerName);
+            try { await oldContainer.stop(); } catch (e) { /* already stopped */ }
+            await oldContainer.remove();
+        } catch (e) { /* container might not exist */ }
+
+        // Create baru dengan env terbaru
+        const container = await docker.createContainer({
+            Image: TEMPLATE_IMAGE,
+            name: containerName,
+            Env: Object.entries(envVars).map(([k, v]) => `${k}=${v}`),
+            ExposedPorts: { '3000/tcp': {} },
+            HostConfig: {
+                PortBindings: {
+                    '3000/tcp': [{ HostPort: String(port) }]
+                },
+                Binds: [
+                    `${buyerDir}/db:/app/src/database`,
+                    `${buyerDir}/assets:/app/assets`,
+                    `${buyerDir}/logs:/app/logs`
+                ],
+                RestartPolicy: { Name: 'unless-stopped' }
+            }
+        });
+
+        await container.start();
+        return { success: true, port, recreated: true };
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -505,6 +576,7 @@ module.exports = {
     stopBot,
     startBot,
     restartBot,
+    recreateBot,
     removeBot,
     rebuildBot,
     getStatus,

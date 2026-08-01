@@ -465,10 +465,12 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                         className="form-input"
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/gif"
+                        disabled={noBanner}
                         onChange={e => {
                             setBanner(e.target.files[0] || null)
                             if (e.target.files[0]) setNoBanner(false)
                         }}
+                        style={noBanner ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
                     />
                     <span className="form-hint">PNG/JPG/WebP/GIF, maks 5MB. Tampil saat /start. Kosongkan kalau tidak perlu.</span>
                     <label className="no-banner-check" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.6rem', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-dim)' }}>

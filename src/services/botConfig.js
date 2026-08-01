@@ -63,6 +63,30 @@ const readEnv = (containerName) => {
     return env;
 };
 
+// Update sebagian nilai .env (key-value) tanpa menghapus key lain.
+const updateEnv = (containerName, updates) => {
+    const envPath = path.join(DATA_DIR, containerName, '.env');
+    if (!fs.existsSync(envPath)) return { success: false, error: '.env tidak ditemukan' };
+    const content = fs.readFileSync(envPath, 'utf8');
+    const lines = content.split('\n');
+    const seen = new Set();
+    const out = lines.map(line => {
+        const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+        if (m && updates[m[1]] !== undefined) {
+            seen.add(m[1]);
+            const val = String(updates[m[1]]);
+            return `${m[1]}=${val.includes('#') || val.includes(' ') ? `"${val}"` : val}`;
+        }
+        return line;
+    });
+    // Key baru yang belum ada di file
+    for (const [k, v] of Object.entries(updates)) {
+        if (!seen.has(k)) out.push(`${k}=${String(v).includes('#') || String(v).includes(' ') ? `"${v}"` : v}`);
+    }
+    fs.writeFileSync(envPath, out.join('\n'));
+    return { success: true, updated: [...seen] };
+};
+
 const getBannerFiles = (containerName) => {
     const assetsDir = path.join(DATA_DIR, containerName, 'assets');
     try {
@@ -74,7 +98,7 @@ const getBannerFiles = (containerName) => {
 };
 
 /**
- * Ambil konfigurasi lengkap bot (gateway + theme + banner + env info).
+ * Ambil konfigurasi lengkap bot (gateway + theme + banner + semua env field).
  */
 const getBotConfig = (containerName) => {
     const env = readEnv(containerName);
@@ -84,11 +108,25 @@ const getBotConfig = (containerName) => {
         gateway_error: gw.success ? null : gw.error,
         theme_preset: env.THEME_PRESET || '',
         banners: getBannerFiles(containerName),
-        env: {
+        // Semua field yang bisa di-edit (seperti deploy awal)
+        config: {
             store_name: env.STORE_NAME || '',
             support_username: env.SUPPORT_USERNAME || '',
             support_hours: env.SUPPORT_HOURS || '',
-            order_prefix: env.ORDER_PREFIX || ''
+            order_prefix: env.ORDER_PREFIX || '',
+            admin_panel_password: env.ADMIN_PANEL_PASSWORD || '',
+            theme_preset: env.THEME_PRESET || '',
+            pakasir_api_key: env.PAKASIR_API_KEY || '',
+            pakasir_slug: env.PAKASIR_SLUG || '',
+            wijayapay_code_merchant: env.WIJAYAPAY_CODE_MERCHANT || '',
+            wijayapay_api_key: env.WIJAYAPAY_API_KEY || '',
+            xoftware_api_key: env.XOWFTWARE_API_KEY || '',
+            xoftware_merchant_id: env.XOWFTWARE_MERCHANT_ID || '',
+            xoftware_webhook_secret: env.XOWFTWARE_WEBHOOK_SECRET || '',
+            xoftware_notify_url: env.XOWFTWARE_NOTIFY_URL || '',
+            xoftware_fee_direction: env.XOWFTWARE_FEE_DIRECTION || 'merchant',
+            klikqris_api_key: env.KLIKQRIS_API_KEY || '',
+            klikqris_merchant_id: env.KLIKQRIS_MERCHANT_ID || ''
         }
     };
 };
@@ -215,6 +253,7 @@ module.exports = {
     setActiveGateway,
     setTheme,
     setBanner,
+    updateEnv,
     readBotGateways,
     readEnv,
     SUPPORTED_PROVIDERS

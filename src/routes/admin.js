@@ -521,9 +521,18 @@ router.post('/api/admin/backup-all', requireAuth, adminLimiter, async (req, res)
 
 const botConfig = require('../services/botConfig');
 
+// Helper: restart container kalau diminta (default: ya)
+const maybeRestart = (name, restart) => {
+    if (restart !== false) {
+        dockerEngine.restartBot(name).catch(() => { });
+        return true;
+    }
+    return false;
+};
+
 /**
  * GET /api/admin/deployments/:name/config
- * Ambil konfigurasi bot: gateway, theme, banner, env.
+ * Ambil konfigurasi bot: gateway, theme, banner, semua env field.
  */
 router.get('/api/admin/deployments/:name/config', requireAuth, adminLimiter, (req, res) => {
     try {
@@ -537,8 +546,8 @@ router.get('/api/admin/deployments/:name/config', requireAuth, adminLimiter, (re
 });
 
 /**
- * POST /api/admin/deployments/:name/config/gateway { provider, credentials }
- * Ganti gateway aktif bot.
+ * POST /api/admin/deployments/:name/config/gateway { provider, credentials, restart }
+ * Ganti gateway aktif bot. restart=false → tidak restart (buat save-all).
  */
 router.post('/api/admin/deployments/:name/config/gateway', requireAuth, adminLimiter, (req, res) => {
     try {
@@ -546,20 +555,20 @@ router.post('/api/admin/deployments/:name/config/gateway', requireAuth, adminLim
         const dep = db.getDeploymentByContainer(name);
         if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
 
-        const { provider, credentials } = req.body || {};
+        const { provider, credentials, restart } = req.body || {};
         const result = botConfig.setActiveGateway(name, provider, credentials);
         if (!result.success) return res.status(400).json({ success: false, error: result.error });
 
-        dockerEngine.restartBot(name).catch(() => { });
-        logAudit('GANTI_GATEWAY', `${dep.store_name} → ${provider}`, 'admin');
-        res.json({ success: true, message: `Gateway ${provider} diaktifkan. Container restarting...` });
+        const restarted = maybeRestart(name, restart);
+        logAudit('GANTI_GATEWAY', `${dep.store_name} → ${provider}${restarted ? ' + restart' : ''}`, 'admin');
+        res.json({ success: true, message: `Gateway ${provider} diaktifkan${restarted ? '. Container restarting...' : '. Belum restart.'}` });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
 /**
- * POST /api/admin/deployments/:name/config/theme { theme_preset }
+ * POST /api/admin/deployments/:name/config/theme { theme_preset, restart }
  * Ganti theme QRIS.
  */
 router.post('/api/admin/deployments/:name/config/theme', requireAuth, adminLimiter, (req, res) => {
@@ -568,13 +577,13 @@ router.post('/api/admin/deployments/:name/config/theme', requireAuth, adminLimit
         const dep = db.getDeploymentByContainer(name);
         if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
 
-        const { theme_preset } = req.body || {};
+        const { theme_preset, restart } = req.body || {};
         const result = botConfig.setTheme(name, theme_preset);
         if (!result.success) return res.status(400).json({ success: false, error: result.error });
 
-        dockerEngine.restartBot(name).catch(() => { });
-        logAudit('GANTI_THEME', `${dep.store_name} → ${result.theme}`, 'admin');
-        res.json({ success: true, message: `Theme diubah ke ${result.theme}. Container restarting...` });
+        const restarted = maybeRestart(name, restart);
+        logAudit('GANTI_THEME', `${dep.store_name} → ${result.theme}${restarted ? ' + restart' : ''}`, 'admin');
+        res.json({ success: true, message: `Theme diubah ke ${result.theme}${restarted ? '. Container restarting...' : '. Belum restart.'}` });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -582,7 +591,7 @@ router.post('/api/admin/deployments/:name/config/theme', requireAuth, adminLimit
 
 /**
  * POST /api/admin/deployments/:name/config/banner (multer: banner)
- * Upload banner baru.
+ * Upload banner baru. restart=false → tidak restart.
  */
 router.post('/api/admin/deployments/:name/config/banner', requireAuth, upload.single('banner'), (req, res) => {
     try {
@@ -594,15 +603,73 @@ router.post('/api/admin/deployments/:name/config/banner', requireAuth, upload.si
         }
         if (!req.file) return res.status(400).json({ success: false, error: 'File banner wajib diupload' });
 
+        const restart = req.body?.restart !== 'false';
         const result = botConfig.setBanner(name, req.file.path, req.file.originalname);
         try { fs.unlinkSync(req.file.path); } catch (_) { }
         if (!result.success) return res.status(400).json({ success: false, error: result.error });
 
-        dockerEngine.restartBot(name).catch(() => { });
-        logAudit('GANTI_BANNER', dep.store_name, 'admin');
-        res.json({ success: true, message: 'Banner diperbarui. Container restarting...' });
+        const restarted = maybeRestart(name, restart);
+        logAudit('GANTI_BANNER', `${dep.store_name}${restarted ? ' + restart' : ''}`, 'admin');
+        res.json({ success: true, message: `Banner diperbarui${restarted ? '. Container restarting...' : '. Belum restart.'}` });
     } catch (e) {
         if (req.file) { try { fs.unlinkSync(req.file.path); } catch (_) { } }
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/deployments/:name/config/env { env: {...}, restart }
+ * Simpan field umum (store_name, support, order_prefix, admin password, dll) ke .env.
+ */
+router.post('/api/admin/deployments/:name/config/env', requireAuth, adminLimiter, (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+
+        const { env, restart } = req.body || {};
+        if (!env || typeof env !== 'object') return res.status(400).json({ success: false, error: 'env wajib diisi' });
+
+        // Whitelist key yang boleh diubah
+        const allowed = [
+            'STORE_NAME', 'SUPPORT_USERNAME', 'SUPPORT_HOURS', 'ORDER_PREFIX',
+            'ADMIN_PANEL_PASSWORD', 'THEME_PRESET',
+            'PAKASIR_API_KEY', 'PAKASIR_SLUG',
+            'WIJAYAPAY_CODE_MERCHANT', 'WIJAYAPAY_API_KEY',
+            'XOWFTWARE_API_KEY', 'XOWFTWARE_MERCHANT_ID', 'XOWFTWARE_WEBHOOK_SECRET', 'XOWFTWARE_NOTIFY_URL', 'XOWFTWARE_FEE_DIRECTION',
+            'KLIKQRIS_API_KEY', 'KLIKQRIS_MERCHANT_ID'
+        ];
+        const updates = {};
+        for (const key of allowed) {
+            if (env[key] !== undefined) updates[key] = String(env[key]).trim();
+        }
+        if (Object.keys(updates).length === 0) return res.status(400).json({ success: false, error: 'Tidak ada field yang valid' });
+
+        const result = botConfig.updateEnv(name, updates);
+        if (!result.success) return res.status(400).json({ success: false, error: result.error });
+
+        const restarted = maybeRestart(name, restart);
+        logAudit('GANTI_ENV', `${dep.store_name}: ${Object.keys(updates).join(', ')}${restarted ? ' + restart' : ''}`, 'admin');
+        res.json({ success: true, updated: Object.keys(updates), restarted, message: `Konfigurasi disimpan${restarted ? '. Container restarting...' : '. Belum restart.'}` });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/deployments/:name/config/restart
+ * Restart container bot (untuk tombol "Restart" manual).
+ */
+router.post('/api/admin/deployments/:name/config/restart', requireAuth, adminLimiter, async (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+
+        const result = await dockerEngine.restartBot(name);
+        logAudit('RESTART_BOT', dep.store_name, 'admin');
+        res.json({ success: true, message: 'Container restarting...', result });
+    } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });

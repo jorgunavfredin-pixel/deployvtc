@@ -2438,6 +2438,34 @@ h3 {
   border-radius: 999px;
 }
 
+/* Grid 2 kolom compact untuk field config */
+.config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem 0.9rem;
+}
+
+@media (max-width: 600px) {
+  .config-grid { grid-template-columns: 1fr; }
+}
+
+/* Tombol aksi per section: Save / Save & Restart */
+.config-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.config-saveall {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.config-saveall .config-actions {
+  justify-content: flex-end;
+}
+
 /* ==================== AUDIT ==================== */
 .audit-list {
   display: flex;

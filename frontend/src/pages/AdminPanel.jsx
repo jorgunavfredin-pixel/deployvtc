@@ -4,7 +4,8 @@ import {
     LayoutDashboard, KeyRound, Boxes, LogOut, RefreshCw, Plus,
     Play, Square, RotateCw, Hammer, Trash2, Clock, ExternalLink,
     Server, Wallet, HardDrive, Loader2, Download, Upload, Database,
-    Settings2, ScrollText, Search, ShieldCheck, X, CheckCircle2, AlertTriangle
+    Settings2, ScrollText, Search, ShieldCheck, X, CheckCircle2, AlertTriangle,
+    Store, Save
 } from 'lucide-react'
 import { LogoIcon } from '../components/Logo'
 
@@ -643,81 +644,192 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
 // ==================== CONFIG MODAL ====================
 
 function ConfigModal({ dep, data, onClose, onDone }) {
+    const [form, setForm] = useState({})
     const [provider, setProvider] = useState('')
     const [creds, setCreds] = useState({})
-    const [theme, setTheme] = useState('')
     const [bannerFile, setBannerFile] = useState(null)
     const [saving, setSaving] = useState('')
     const [msg, setMsg] = useState(null)
-    const [qrisPresets, setQrisPresets] = useState([])
 
+    // Init dari data backend (config.config = semua env field)
     useEffect(() => {
-        fetch('/api/qris-presets').then(r => r.json()).then(d => {
-            if (d.success) setQrisPresets(d.presets)
-        }).catch(() => { })
-    }, [])
-
-    useEffect(() => {
-        if (!data) return
+        if (!data?.config) return
+        const c = data.config
+        setForm({
+            store_name: c.store_name || '',
+            order_prefix: c.order_prefix || '',
+            support_username: c.support_username || '',
+            support_hours: c.support_hours || '',
+            admin_panel_password: c.admin_panel_password || '',
+            pakasir_api_key: c.pakasir_api_key || '',
+            pakasir_slug: c.pakasir_slug || '',
+            wijayapay_code_merchant: c.wijayapay_code_merchant || '',
+            wijayapay_api_key: c.wijayapay_api_key || '',
+            xoftware_api_key: c.xoftware_api_key || '',
+            xoftware_merchant_id: c.xoftware_merchant_id || '',
+            xoftware_webhook_secret: c.xoftware_webhook_secret || '',
+            xoftware_notify_url: c.xoftware_notify_url || '',
+            xoftware_fee_direction: c.xoftware_fee_direction || 'merchant',
+            klikqris_api_key: c.klikqris_api_key || '',
+            klikqris_merchant_id: c.klikqris_merchant_id || ''
+        })
+        // Provider aktif dari DB gateway
         const active = (data.gateways || []).find(g => g.enabled === 1)
         if (active) {
             setProvider(active.provider)
             const pf = PROVIDERS.find(p => p.value === active.provider)
-            const c = {}
-            if (pf) pf.fields.forEach(f => { c[f.key] = active.credentials?.[f.key] || '' })
-            setCreds(c)
+            const cred = {}
+            if (pf) pf.fields.forEach(f => { cred[f.key] = active.credentials?.[f.key] || '' })
+            setCreds(cred)
         }
-        setTheme(data.theme_preset || '')
     }, [data])
 
     const notifyLocal = (m, type = 'ok') => {
         setMsg({ m, type })
-        setTimeout(() => setMsg(null), 3000)
+        setTimeout(() => setMsg(null), 3500)
     }
 
-    const saveGateway = async () => {
+    const set = (key) => (e) => setForm(prev => ({ ...prev, [key]: e.target.value }))
+
+    const envFor = (keys) => {
+        const env = {}
+        for (const k of keys) if (form[k] !== undefined) env[k] = form[k]
+        return env
+    }
+
+    // ==================== SAVE PER SECTION ====================
+    const saveIdentitas = async (restart) => {
+        setSaving('identitas')
+        try {
+            const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/env`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: envFor(['STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_USERNAME', 'SUPPORT_HOURS']), restart })
+            })
+            const d = await res.json()
+            if (!d.success) throw new Error(d.error)
+            notifyLocal(restart ? 'Identitas disimpan + restart' : 'Identitas disimpan (belum restart)')
+            onDone()
+        } catch (e) { notifyLocal(e.message, 'err') }
+        setSaving('')
+    }
+
+    const saveAdminPass = async (restart) => {
+        setSaving('adminpass')
+        try {
+            const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/env`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: envFor(['ADMIN_PANEL_PASSWORD']), restart })
+            })
+            const d = await res.json()
+            if (!d.success) throw new Error(d.error)
+            notifyLocal(restart ? 'Password admin disimpan + restart' : 'Password admin disimpan (belum restart)')
+            onDone()
+        } catch (e) { notifyLocal(e.message, 'err') }
+        setSaving('')
+    }
+
+    const saveGateway = async (restart) => {
         if (!provider) return notifyLocal('Pilih provider', 'err')
         setSaving('gw')
         try {
             const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/gateway`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider, credentials: creds })
+                body: JSON.stringify({ provider, credentials: creds, restart })
             })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
-            notifyLocal(`Gateway ${provider} diaktifkan`)
+            notifyLocal(restart ? `Gateway ${provider} aktif + restart` : `Gateway ${provider} aktif (belum restart)`)
             onDone()
         } catch (e) { notifyLocal(e.message, 'err') }
         setSaving('')
     }
 
-    const saveTheme = async () => {
-        if (!theme) return notifyLocal('Pilih theme', 'err')
+    const saveTheme = async (restart) => {
         setSaving('theme')
         try {
-            const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/theme`, {
+            const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/env`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ theme_preset: theme })
+                body: JSON.stringify({ env: envFor(['THEME_PRESET']), restart })
             })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
-            notifyLocal(`Theme diubah ke ${theme}`)
+            notifyLocal(restart ? 'Theme disimpan + restart' : 'Theme disimpan (belum restart)')
             onDone()
         } catch (e) { notifyLocal(e.message, 'err') }
         setSaving('')
     }
 
-    const saveBanner = async () => {
+    const saveBanner = async (restart) => {
         if (!bannerFile) return notifyLocal('Pilih file banner', 'err')
         setSaving('banner')
         try {
             const fd = new FormData()
             fd.append('banner', bannerFile)
+            fd.append('restart', restart ? 'true' : 'false')
             const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/banner`, { method: 'POST', body: fd })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
-            notifyLocal('Banner diperbarui')
+            notifyLocal(restart ? 'Banner disimpan + restart' : 'Banner disimpan (belum restart)')
             setBannerFile(null)
+            onDone()
+        } catch (e) { notifyLocal(e.message, 'err') }
+        setSaving('')
+    }
+
+    // ==================== SAVE ALL ====================
+    const saveAll = async (restart) => {
+        setSaving('all')
+        const errors = []
+        const envPatch = {
+            ...envFor(['STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_USERNAME', 'SUPPORT_HOURS', 'ADMIN_PANEL_PASSWORD', 'THEME_PRESET']),
+            PAKASIR_API_KEY: form.pakasir_api_key || '',
+            PAKASIR_SLUG: form.pakasir_slug || '',
+            WIJAYAPAY_CODE_MERCHANT: form.wijayapay_code_merchant || '',
+            WIJAYAPAY_API_KEY: form.wijayapay_api_key || '',
+            XOWFTWARE_API_KEY: form.xoftware_api_key || '',
+            XOWFTWARE_MERCHANT_ID: form.xoftware_merchant_id || '',
+            XOWFTWARE_WEBHOOK_SECRET: form.xoftware_webhook_secret || '',
+            XOWFTWARE_NOTIFY_URL: form.xoftware_notify_url || '',
+            XOWFTWARE_FEE_DIRECTION: form.xoftware_fee_direction || 'merchant',
+            KLIKQRIS_API_KEY: form.klikqris_api_key || '',
+            KLIKQRIS_MERCHANT_ID: form.klikqris_merchant_id || ''
+        }
+        try {
+            // 1. Simpan semua env (tanpa restart)
+            const r1 = await fetch(`/api/admin/deployments/${dep.container_name}/config/env`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ env: envPatch, restart: false })
+            })
+            const d1 = await r1.json()
+            if (!d1.success) throw new Error(d1.error)
+
+            // 2. Kalau gateway dipilih, aktifkan (tanpa restart)
+            if (provider) {
+                const r2 = await fetch(`/api/admin/deployments/${dep.container_name}/config/gateway`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, credentials: creds, restart: false })
+                })
+                const d2 = await r2.json()
+                if (!d2.success) throw new Error(d2.error)
+            }
+
+            // 3. Banner kalau ada (tanpa restart)
+            if (bannerFile) {
+                const fd = new FormData()
+                fd.append('banner', bannerFile)
+                fd.append('restart', 'false')
+                const r3 = await fetch(`/api/admin/deployments/${dep.container_name}/config/banner`, { method: 'POST', body: fd })
+                const d3 = await r3.json()
+                if (!d3.success) throw new Error(d3.error)
+                setBannerFile(null)
+            }
+
+            // 4. Restart kalau diminta
+            if (restart) {
+                await fetch(`/api/admin/deployments/${dep.container_name}/config/restart`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+            }
+
+            notifyLocal(restart ? 'Semua konfigurasi disimpan + container restart' : 'Semua konfigurasi disimpan (belum restart)')
             onDone()
         } catch (e) { notifyLocal(e.message, 'err') }
         setSaving('')
@@ -725,12 +837,13 @@ function ConfigModal({ dep, data, onClose, onDone }) {
 
     const selectedProvider = PROVIDERS.find(p => p.value === provider)
     const activeGw = (data?.gateways || []).find(g => g.enabled === 1)
+    const isSaving = saving !== ''
 
     return (
         <div className="admin-modal-overlay" onClick={onClose}>
             <div className="admin-modal admin-modal-lg" onClick={e => e.stopPropagation()}>
                 <div className="modal-head">
-                    <h3><Settings2 size={18} /> Konfigurasi Bot — {dep.store_name}</h3>
+                    <h3><Settings2 size={18} /> Konfigurasi — {dep.store_name}</h3>
                     <button className="modal-close" onClick={onClose}><X size={18} /></button>
                 </div>
 
@@ -743,12 +856,48 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                     </div>
                 ) : (
                     <>
-                        {/* GATEWAY */}
+                        {/* IDENTITAS */}
+                        <div className="config-section">
+                            <div className="config-section-title"><Store size={15} /> Identitas Bot</div>
+                            <div className="config-grid">
+                                <div className="form-group">
+                                    <label className="form-label">Nama Toko</label>
+                                    <input className="form-input" value={form.store_name || ''} onChange={set('store_name')} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Prefix Order</label>
+                                    <input className="form-input" value={form.order_prefix || ''} onChange={set('order_prefix')} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Support Username</label>
+                                    <input className="form-input" placeholder="tanpa @" value={form.support_username || ''} onChange={set('support_username')} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Support Hours</label>
+                                    <input className="form-input" placeholder="09:00 - 23:00 WIB" value={form.support_hours || ''} onChange={set('support_hours')} />
+                                </div>
+                            </div>
+                            <SectionActions saving={saving === 'identitas'} onSave={() => saveIdentitas(false)} onSaveRestart={() => saveIdentitas(true)} />
+                        </div>
+
+                        {/* ADMIN PANEL */}
+                        <div className="config-section">
+                            <div className="config-section-title"><ShieldCheck size={15} /> Admin Panel</div>
+                            <div className="config-grid">
+                                <div className="form-group">
+                                    <label className="form-label">Password Admin Panel</label>
+                                    <input className="form-input" type="password" placeholder="••••••••" value={form.admin_panel_password || ''} onChange={set('admin_panel_password')} />
+                                </div>
+                            </div>
+                            <SectionActions saving={saving === 'adminpass'} onSave={() => saveAdminPass(false)} onSaveRestart={() => saveAdminPass(true)} />
+                        </div>
+
+                        {/* PAYMENT GATEWAY */}
                         <div className="config-section">
                             <div className="config-section-title">
-                                <ShieldCheck size={16} /> Payment Gateway
+                                <Wallet size={15} /> Payment Gateway
                                 <span className="config-current">
-                                    Aktif: {activeGw ? PROVIDERS.find(p => p.value === activeGw.provider)?.label || activeGw.provider : 'Tidak ada'}
+                                    {activeGw ? PROVIDERS.find(p => p.value === activeGw.provider)?.label || activeGw.provider : 'Belum aktif'}
                                 </span>
                             </div>
                             <div className="form-group">
@@ -757,49 +906,101 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                                     {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                                 </select>
                             </div>
-                            {selectedProvider && (
-                                <>
+                            {selectedProvider ? (
+                                <div className="config-grid">
                                     {selectedProvider.fields.map(f => (
                                         <div className="form-group" key={f.key}>
                                             <label className="form-label">{f.label}</label>
                                             <input className="form-input" type={f.type} value={creds[f.key] || ''} onChange={e => setCreds(prev => ({ ...prev, [f.key]: e.target.value }))} />
                                         </div>
                                     ))}
-                                    <button className="btn btn-primary btn-full" onClick={saveGateway} disabled={saving === 'gw'}>
-                                        {saving === 'gw' ? <><Loader2 className="spin" size={14} /> Menyimpan...</> : 'Aktifkan Gateway Ini'}
-                                    </button>
-                                    <span className="form-hint">Gateway lain otomatis dinonaktifkan. Bot restart otomatis.</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="form-group">
+                                        <label className="form-label">PaKasir API Key</label>
+                                        <input className="form-input" type="password" value={form.pakasir_api_key || ''} onChange={set('pakasir_api_key')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">PaKasir Slug</label>
+                                        <input className="form-input" value={form.pakasir_slug || ''} onChange={set('pakasir_slug')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">WijayaPay Code Merchant</label>
+                                        <input className="form-input" value={form.wijayapay_code_merchant || ''} onChange={set('wijayapay_code_merchant')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">WijayaPay API Key</label>
+                                        <input className="form-input" type="password" value={form.wijayapay_api_key || ''} onChange={set('wijayapay_api_key')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">KlikQRIS API Key</label>
+                                        <input className="form-input" type="password" value={form.klikqris_api_key || ''} onChange={set('klikqris_api_key')} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">KlikQRIS Merchant ID</label>
+                                        <input className="form-input" value={form.klikqris_merchant_id || ''} onChange={set('klikqris_merchant_id')} />
+                                    </div>
                                 </>
+                            )}
+                            {selectedProvider && (
+                                <SectionActions saving={saving === 'gw'} onSave={() => saveGateway(false)} onSaveRestart={() => saveGateway(true)} />
                             )}
                         </div>
 
-                        {/* THEME */}
+                        {/* THEME QRIS */}
                         <div className="config-section">
-                            <div className="config-section-title"><Settings2 size={16} /> Theme QRIS</div>
+                            <div className="config-section-title"><Settings2 size={15} /> Theme QRIS</div>
                             <div className="form-group">
-                                <select className="form-input" value={theme} onChange={e => setTheme(e.target.value)}>
+                                <select className="form-input" value={form.theme_preset || ''} onChange={set('theme_preset')}>
                                     <option value="">Pilih Preset</option>
-                                    {qrisPresets.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
+                                    {['qris-1', 'qris-2', 'qris-3'].map(id => <option key={id} value={id}>{id}</option>)}
                                 </select>
                             </div>
-                            <button className="btn btn-primary btn-full" onClick={saveTheme} disabled={saving === 'theme'}>
-                                {saving === 'theme' ? <><Loader2 className="spin" size={14} /> Menyimpan...</> : 'Ganti Theme'}
-                            </button>
+                            <SectionActions saving={saving === 'theme'} onSave={() => saveTheme(false)} onSaveRestart={() => saveTheme(true)} />
                         </div>
 
                         {/* BANNER */}
                         <div className="config-section">
-                            <div className="config-section-title"><Database size={16} /> Banner Toko</div>
+                            <div className="config-section-title"><Database size={15} /> Banner Toko</div>
                             <div className="form-group">
                                 <input className="form-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => setBannerFile(e.target.files[0])} />
                             </div>
-                            <button className="btn btn-primary btn-full" onClick={saveBanner} disabled={saving === 'banner'}>
-                                {saving === 'banner' ? <><Loader2 className="spin" size={14} /> Upload...</> : 'Ganti Banner'}
-                            </button>
+                            <SectionActions saving={saving === 'banner'} onSave={() => saveBanner(false)} onSaveRestart={() => saveBanner(true)} disabled={!bannerFile} />
+                        </div>
+
+                        {/* SAVE ALL */}
+                        <div className="config-section config-saveall">
+                            <div className="config-section-title"><CheckCircle2 size={15} /> Simpan Semua</div>
+                            <p className="form-hint" style={{ marginBottom: '0.6rem' }}>
+                                Simpan semua perubahan di atas sekaligus. Restart belakangan kalau masih mau edit dulu.
+                            </p>
+                            <div className="config-actions">
+                                <button className="btn btn-outline" onClick={() => saveAll(false)} disabled={isSaving}>
+                                    {saving === 'all' ? <><Loader2 className="spin" size={14} /> Menyimpan...</> : <><Save size={14} /> Save All</>}
+                                </button>
+                                <button className="btn btn-primary" onClick={() => saveAll(true)} disabled={isSaving}>
+                                    <><Save size={14} /> Save All & Restart</>
+                                </button>
+                            </div>
                         </div>
                     </>
                 )}
             </div>
+        </div>
+    )
+}
+
+// Tombol aksi per section: [Save] [Save & Restart]
+function SectionActions({ saving, onSave, onSaveRestart, disabled }) {
+    return (
+        <div className="config-actions">
+            <button className="btn btn-outline btn-sm" onClick={onSave} disabled={saving || disabled}>
+                {saving ? <><Loader2 className="spin" size={13} /> Menyimpan...</> : <><Save size={13} /> Save</>}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={onSaveRestart} disabled={saving || disabled}>
+                <><Save size={13} /> Save & Restart</>
+            </button>
         </div>
     )
 }

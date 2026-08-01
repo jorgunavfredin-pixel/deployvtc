@@ -29,17 +29,9 @@ function AdminRoute() {
 }
 
 // /admin publik → fake 404 (kayak halaman gak ada).
-// Panel asli hanya di /admin-<random> (path rahasia).
-// Route /admin/* menangkap /admin dan /admin-xxx sekaligus.
-function AdminGuard() {
-    const location = useLocation()
-    const isSecretPath = location.pathname.startsWith('/admin-')
-    if (!isSecretPath) {
-        return <Fake404 />
-    }
-    return <AdminRoute />
-}
-
+// Panel asli hanya di /admin-<random> (path rahasia dengan DASH, bukan slash).
+// React Router v7: `*` harus setelah `/`, jadi /admin-xxx TIDAK bisa match via
+// pattern route. Ditangani di AdminOr404 (cek pathname manual).
 function Fake404() {
     return (
         <div style={{
@@ -63,11 +55,23 @@ function App() {
         <Route path="/deploy" element={<Deploy />} />
         <Route path="/renew" element={<Renew />} />
         <Route path="/manage" element={<Manage />} />
-        <Route path="/admin/*" element={<AdminGuard />} />
-        <Route path="*" element={<Navigate to="/" />} />
+        {/* /admin → Fake404. /admin-xxx tidak bisa match pattern route (v7),
+            jadi tangani lewat route khusus di bawah dengan pathname check */}
+        <Route path="/admin" element={<Fake404 />} />
+        {/* Catch-all: kalau pathname dimulai /admin- → render admin, selain itu 404 */}
+        <Route path="*" element={<AdminOr404 />} />
       </Routes>
     </BrowserRouter>
   )
+}
+
+// Render admin panel kalau pathname /admin-*, selain itu Fake404.
+function AdminOr404() {
+  const location = useLocation()
+  if (location.pathname.startsWith('/admin-')) {
+    return <AdminRoute />
+  }
+  return <Fake404 />
 }
 
 export default App

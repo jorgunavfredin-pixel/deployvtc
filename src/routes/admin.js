@@ -11,16 +11,42 @@ const dockerEngine = require('../docker');
 
 const router = express.Router();
 
+// Multer untuk upload banner (max 5MB)
+const upload = multer({
+    dest: path.join(__dirname, '../../uploads/'),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype && file.mimetype.startsWith('image/')) cb(null, true);
+        else cb(new Error('Only image files allowed'));
+    }
+});
+
 // ==================== AUTH CONFIG ====================
 
-// JWT secret: wajib dari env. Jangan pernah pakai fallback hardcoded.
-// Kalau ADMIN_JWT_SECRET tidak di-set, admin panel nonaktif (fail-closed).
-const JWT_SECRET = process.env.ADMIN_JWT_SECRET || '';
+const { jwtSecret, adminPassword } = require('../secret');
+const JWT_SECRET = jwtSecret;
 const JWT_EXPIRY = '8h';
 const COOKIE_NAME = 'deploy_admin_token';
 
-// Password admin: wajib dari env. Tanpa password, panel nonaktif.
-const ADMIN_PASSWORD = process.env.ADMIN_PANEL_PASSWORD || '';
+// Password admin: dari secret.js (env ADMIN_PANEL_PASSWORD > file > auto-generate).
+const ADMIN_PASSWORD = adminPassword;
+
+// ==================== AUDIT LOG ====================
+
+// Audit log sederhana (in-memory, max 200 entri).
+const auditLog = [];
+const MAX_AUDIT = 200;
+
+const logAudit = (action, detail = '', actor = 'admin') => {
+    auditLog.unshift({
+        id: Date.now() + Math.random().toString(36).slice(2, 6),
+        action,
+        detail,
+        actor,
+        at: new Date().toISOString()
+    });
+    if (auditLog.length > MAX_AUDIT) auditLog.length = MAX_AUDIT;
+};
 
 // ==================== MIDDLEWARE ====================
 
@@ -44,16 +70,6 @@ const adminLimiter = rateLimit({
 
 // Parse cookies
 router.use(cookieParser());
-
-// Fail-closed: kalau secret/password belum di-set, semua endpoint admin mati.
-// Hanya berlaku untuk path /api/admin/* — route lain tetap jalan.
-router.use((req, res, next) => {
-    if (!req.path.startsWith('/api/admin')) return next();
-    if (!JWT_SECRET || !ADMIN_PASSWORD) {
-        return res.status(503).json({ success: false, error: 'Admin panel belum dikonfigurasi (ADMIN_JWT_SECRET & ADMIN_PANEL_PASSWORD wajib di .env)' });
-    }
-    next();
-});
 
 // Auth middleware: verifikasi JWT dari httpOnly cookie
 const requireAuth = (req, res, next) => {
@@ -104,6 +120,7 @@ router.post('/api/admin/login', loginLimiter, (req, res) => {
     res.setHeader('Set-Cookie', [
         `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 60 * 60}; ${process.env.NODE_ENV === 'production' ? 'Secure;' : ''}`
     ]);
+    logAudit('LOGIN', 'Admin login', 'admin');
     res.json({ success: true, message: 'Login berhasil' });
 });
 
@@ -498,6 +515,106 @@ router.post('/api/admin/backup-all', requireAuth, adminLimiter, async (req, res)
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
+});
+
+// ==================== BOT CONFIG (admin) ====================
+
+const botConfig = require('../services/botConfig');
+
+/**
+ * GET /api/admin/deployments/:name/config
+ * Ambil konfigurasi bot: gateway, theme, banner, env.
+ */
+router.get('/api/admin/deployments/:name/config', requireAuth, adminLimiter, (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+        res.json({ success: true, config: botConfig.getBotConfig(name) });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/deployments/:name/config/gateway { provider, credentials }
+ * Ganti gateway aktif bot.
+ */
+router.post('/api/admin/deployments/:name/config/gateway', requireAuth, adminLimiter, (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+
+        const { provider, credentials } = req.body || {};
+        const result = botConfig.setActiveGateway(name, provider, credentials);
+        if (!result.success) return res.status(400).json({ success: false, error: result.error });
+
+        dockerEngine.restartBot(name).catch(() => { });
+        logAudit('GANTI_GATEWAY', `${dep.store_name} → ${provider}`, 'admin');
+        res.json({ success: true, message: `Gateway ${provider} diaktifkan. Container restarting...` });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/deployments/:name/config/theme { theme_preset }
+ * Ganti theme QRIS.
+ */
+router.post('/api/admin/deployments/:name/config/theme', requireAuth, adminLimiter, (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+
+        const { theme_preset } = req.body || {};
+        const result = botConfig.setTheme(name, theme_preset);
+        if (!result.success) return res.status(400).json({ success: false, error: result.error });
+
+        dockerEngine.restartBot(name).catch(() => { });
+        logAudit('GANTI_THEME', `${dep.store_name} → ${result.theme}`, 'admin');
+        res.json({ success: true, message: `Theme diubah ke ${result.theme}. Container restarting...` });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/deployments/:name/config/banner (multer: banner)
+ * Upload banner baru.
+ */
+router.post('/api/admin/deployments/:name/config/banner', requireAuth, upload.single('banner'), (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) {
+            if (req.file) fs.unlinkSync(req.file.path);
+            return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+        }
+        if (!req.file) return res.status(400).json({ success: false, error: 'File banner wajib diupload' });
+
+        const result = botConfig.setBanner(name, req.file.path, req.file.originalname);
+        try { fs.unlinkSync(req.file.path); } catch (_) { }
+        if (!result.success) return res.status(400).json({ success: false, error: result.error });
+
+        dockerEngine.restartBot(name).catch(() => { });
+        logAudit('GANTI_BANNER', dep.store_name, 'admin');
+        res.json({ success: true, message: 'Banner diperbarui. Container restarting...' });
+    } catch (e) {
+        if (req.file) { try { fs.unlinkSync(req.file.path); } catch (_) { } }
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ==================== AUDIT LOG ====================
+
+/**
+ * GET /api/admin/audit
+ * Riwayat aksi admin (login, gateway, theme, banner, revoke, dll).
+ */
+router.get('/api/admin/audit', requireAuth, adminLimiter, (req, res) => {
+    res.json({ success: true, audit: auditLog });
 });
 
 module.exports = router;

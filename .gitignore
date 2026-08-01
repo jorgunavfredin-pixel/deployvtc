@@ -5,4 +5,5 @@ uploads/
 deploy.db
 deploy.db-shm
 deploy.db-wal
+deploy-secrets.json
 *.log

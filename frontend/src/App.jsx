@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import Landing from './pages/Landing'
 import Deploy from './pages/Deploy'
@@ -8,11 +8,10 @@ import AdminLogin from './pages/AdminLogin'
 import AdminPanel from './pages/AdminPanel'
 
 function AdminRoute() {
-    const [status, setStatus] = useState('checking') // checking | authed | guest | disabled
+    const [status, setStatus] = useState('checking') // checking | authed | guest
 
     useEffect(() => {
         fetch('/api/admin/me').then(async (res) => {
-            if (res.status === 503) { setStatus('disabled'); return }
             if (res.ok) setStatus('authed')
             else setStatus('guest')
         }).catch(() => setStatus('guest'))
@@ -22,25 +21,37 @@ function AdminRoute() {
         return <div className="admin-loading"><p>Memeriksa sesi...</p></div>
     }
 
-    if (status === 'disabled') {
-        return (
-            <div className="admin-login-page">
-                <div className="admin-login-card">
-                    <h1>🔒 Admin Panel Nonaktif</h1>
-                    <p className="admin-login-sub">
-                        Admin panel belum dikonfigurasi.<br />
-                        Set <code>ADMIN_PANEL_PASSWORD</code> & <code>ADMIN_JWT_SECRET</code> di .env server.
-                    </p>
-                </div>
-            </div>
-        )
-    }
-
     if (status === 'guest') return <AdminLogin onLogin={() => setStatus('authed')} />
     return <AdminPanel onLogout={async () => {
         await fetch('/api/admin/logout', { method: 'POST' })
         setStatus('guest')
     }} />
+}
+
+// /admin publik → fake 404 (kayak halaman gak ada).
+// Panel asli hanya di /admin-<random> (path rahasia).
+function AdminGuard() {
+    const location = useLocation()
+    const isSecretPath = location.pathname.startsWith('/admin-')
+    if (!isSecretPath) {
+        return <Fake404 />
+    }
+    return <AdminRoute />
+}
+
+function Fake404() {
+    return (
+        <div style={{
+            minHeight: '100vh', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            background: 'var(--bg-deep)', color: 'var(--text-dim)',
+            fontFamily: 'system-ui, sans-serif', textAlign: 'center', padding: '2rem'
+        }}>
+            <h1 style={{ fontSize: '4rem', margin: 0, color: 'var(--text-bright)' }}>404</h1>
+            <p style={{ fontSize: '1.1rem' }}>Halaman tidak ditemukan.</p>
+            <a href="/" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>← Kembali ke Beranda</a>
+        </div>
+    )
 }
 
 function App() {
@@ -51,7 +62,8 @@ function App() {
         <Route path="/deploy" element={<Deploy />} />
         <Route path="/renew" element={<Renew />} />
         <Route path="/manage" element={<Manage />} />
-        <Route path="/admin" element={<AdminRoute />} />
+        <Route path="/admin" element={<AdminGuard />} />
+        <Route path="/admin-*" element={<AdminRoute />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

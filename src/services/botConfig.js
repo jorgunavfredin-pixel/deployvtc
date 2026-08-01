@@ -1,0 +1,221 @@
+// Shared logic untuk baca/tulis konfigurasi bot member (gateway/theme/banner).
+// Dipakai oleh admin panel (routes/admin.js).
+// Semua operasi menulis langsung ke DB bot (buyerDir/db/store.db) + .env,
+// TANPA menyentuh data lain (produk, order, saldo).
+
+const fs = require('fs');
+const path = require('path');
+const Database = require('better-sqlite3');
+
+const DATA_DIR = process.env.DATA_DIR || '/root/data';
+
+const getBotDbPath = (containerName) => path.join(DATA_DIR, containerName, 'db', 'store.db');
+
+const openBotDb = (containerName) => {
+    const p = getBotDbPath(containerName);
+    if (!fs.existsSync(p)) return null;
+    return new Database(p, { readonly: false });
+};
+
+const safeParseJson = (s) => {
+    try { return JSON.parse(s); } catch { return {}; }
+};
+
+const PROVIDER_REQUIRED = {
+    pakasir: ['api_key', 'slug'],
+    wijayapay: ['code_merchant', 'api_key'],
+    xoftware: ['api_key', 'merchant_id', 'webhook_secret'],
+    klikqris: ['api_key', 'merchant_id']
+};
+
+const ENV_MAP = {
+    pakasir: { PAKASIR_API_KEY: 'api_key', PAKASIR_SLUG: 'slug' },
+    wijayapay: { WIJAYAPAY_CODE_MERCHANT: 'code_merchant', WIJAYAPAY_API_KEY: 'api_key' },
+    xoftware: { XOWFTWARE_API_KEY: 'api_key', XOWFTWARE_MERCHANT_ID: 'merchant_id', XOWFTWARE_WEBHOOK_SECRET: 'webhook_secret', XOWFTWARE_NOTIFY_URL: 'registered_notify_url' },
+    klikqris: { KLIKQRIS_API_KEY: 'api_key', KLIKQRIS_MERCHANT_ID: 'merchant_id' }
+};
+
+const SUPPORTED_PROVIDERS = Object.keys(ENV_MAP);
+
+const readBotGateways = (containerName) => {
+    let ddb = null;
+    try {
+        ddb = openBotDb(containerName);
+        if (!ddb) return { success: false, error: 'store.db tidak ditemukan' };
+        const rows = ddb.prepare('SELECT id, provider, label, credentials, enabled, priority FROM payment_gateways ORDER BY priority ASC, created_at ASC').all();
+        return { success: true, gateways: rows.map(r => ({ ...r, credentials: safeParseJson(r.credentials) })) };
+    } catch (e) {
+        return { success: false, error: e.message };
+    } finally {
+        if (ddb) ddb.close();
+    }
+};
+
+const readEnv = (containerName) => {
+    const envPath = path.join(DATA_DIR, containerName, '.env');
+    const env = {};
+    if (fs.existsSync(envPath)) {
+        fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
+            const m = line.match(/^([A-Z0-9_]+)="?([^"]*)"?$/);
+            if (m) env[m[1]] = m[2];
+        });
+    }
+    return env;
+};
+
+const getBannerFiles = (containerName) => {
+    const assetsDir = path.join(DATA_DIR, containerName, 'assets');
+    try {
+        if (fs.existsSync(assetsDir)) {
+            return fs.readdirSync(assetsDir).filter(f => /^banner\.(png|jpe?g|webp|gif)$/i.test(f));
+        }
+    } catch (_) { }
+    return [];
+};
+
+/**
+ * Ambil konfigurasi lengkap bot (gateway + theme + banner + env info).
+ */
+const getBotConfig = (containerName) => {
+    const env = readEnv(containerName);
+    const gw = readBotGateways(containerName);
+    return {
+        gateways: gw.success ? gw.gateways : [],
+        gateway_error: gw.success ? null : gw.error,
+        theme_preset: env.THEME_PRESET || '',
+        banners: getBannerFiles(containerName),
+        env: {
+            store_name: env.STORE_NAME || '',
+            support_username: env.SUPPORT_USERNAME || '',
+            support_hours: env.SUPPORT_HOURS || '',
+            order_prefix: env.ORDER_PREFIX || ''
+        }
+    };
+};
+
+/**
+ * Set 1 gateway aktif: nonaktifkan semua, aktifkan/upsert provider terpilih.
+ * Tulis ke DB bot + .env.
+ */
+const setActiveGateway = (containerName, provider, credentials) => {
+    if (!SUPPORTED_PROVIDERS.includes(provider)) return { success: false, error: 'Provider tidak valid' };
+
+    const creds = credentials || {};
+    for (const f of PROVIDER_REQUIRED[provider]) {
+        if (!creds[f] || !String(creds[f]).trim()) {
+            return { success: false, error: `Credential ${f} wajib diisi` };
+        }
+    }
+
+    const ddb = openBotDb(containerName);
+    if (!ddb) return { success: false, error: 'store.db tidak ditemukan' };
+
+    try {
+        ddb.prepare('UPDATE payment_gateways SET enabled = 0').run();
+        const existing = ddb.prepare('SELECT id, credentials FROM payment_gateways WHERE provider = ?').get(provider);
+        const now = new Date().toISOString();
+        if (existing) {
+            const merged = { ...safeParseJson(existing.credentials), ...creds };
+            ddb.prepare('UPDATE payment_gateways SET credentials = ?, enabled = 1, updated_at = ? WHERE id = ?')
+                .run(JSON.stringify(merged), now, existing.id);
+        } else {
+            const id = `GW-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            ddb.prepare('INSERT INTO payment_gateways (id, provider, label, credentials, enabled, priority, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 0, ?, ?)')
+                .run(id, provider, provider, JSON.stringify(creds), now, now);
+        }
+        ddb.close();
+    } catch (e) {
+        if (ddb) ddb.close();
+        return { success: false, error: 'Gagal update DB bot: ' + e.message };
+    }
+
+    // Update .env (backward-compat)
+    try {
+        const envPath = path.join(DATA_DIR, containerName, '.env');
+        if (fs.existsSync(envPath)) {
+            let content = fs.readFileSync(envPath, 'utf8');
+            const lines = content.split('\n').filter(l => l.trim() !== '');
+            const gatewayKeys = Object.values(ENV_MAP).flatMap(m => Object.keys(m));
+            const kept = lines.filter(l => {
+                const m = l.match(/^([A-Z0-9_]+)=/);
+                return !(m && gatewayKeys.includes(m[1]));
+            });
+            const addLines = Object.entries(ENV_MAP[provider]).map(([envKey, field]) => {
+                const val = creds[field] || '';
+                return `${envKey}=${String(val).includes('#') ? `"${val}"` : val}`;
+            });
+            fs.writeFileSync(envPath, [...kept, ...addLines].join('\n') + '\n');
+        }
+    } catch (_) { }
+
+    return { success: true, provider };
+};
+
+/**
+ * Ganti theme preset QRIS (copy file + update .env).
+ */
+const setTheme = (containerName, themePreset) => {
+    const presetSourceDir = process.env.QRIS_PRESET_DIR || '/root/vitaicmin/assets/qris-custom/presets';
+    const id = String(themePreset || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!id) return { success: false, error: 'theme_preset tidak valid' };
+
+    const presetExts = ['.png', '.jpg', '.jpeg', '.webp'];
+    let src = null;
+    for (const ext of presetExts) {
+        const p = path.join(presetSourceDir, `${id}${ext}`);
+        if (fs.existsSync(p)) { src = p; break; }
+    }
+    if (!src) return { success: false, error: 'Preset tidak ditemukan' };
+
+    const destDir = path.join(DATA_DIR, containerName, 'assets', 'qris-custom', 'presets');
+    fs.mkdirSync(destDir, { recursive: true });
+    const ext = path.extname(src);
+    fs.copyFileSync(src, path.join(destDir, `${id}${ext}`));
+
+    const envPath = path.join(DATA_DIR, containerName, '.env');
+    try {
+        if (fs.existsSync(envPath)) {
+            let content = fs.readFileSync(envPath, 'utf8');
+            if (/^THEME_PRESET=/m.test(content)) {
+                content = content.replace(/^THEME_PRESET=.*$/m, `THEME_PRESET=${id}`);
+            } else {
+                content += `\nTHEME_PRESET=${id}\n`;
+            }
+            fs.writeFileSync(envPath, content);
+        }
+    } catch (_) { }
+
+    return { success: true, theme: id };
+};
+
+/**
+ * Ganti banner toko (hapus banner lama, copy baru).
+ * uploadedPath: path file sementara dari multer. originalName: nama asli upload.
+ */
+const setBanner = (containerName, uploadedPath, originalName) => {
+    const ext = (path.extname(originalName || '') || '.png').toLowerCase();
+    const safeExt = ['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext) ? ext : '.png';
+
+    const assetsDir = path.join(DATA_DIR, containerName, 'assets');
+    if (fs.existsSync(assetsDir)) {
+        fs.readdirSync(assetsDir).forEach(f => {
+            if (/^banner\.(png|jpe?g|webp|gif)$/i.test(f)) {
+                try { fs.unlinkSync(path.join(assetsDir, f)); } catch (_) { }
+            }
+        });
+    }
+
+    fs.mkdirSync(assetsDir, { recursive: true });
+    fs.copyFileSync(uploadedPath, path.join(assetsDir, `banner${safeExt}`));
+    return { success: true, file: `banner${safeExt}` };
+};
+
+module.exports = {
+    getBotConfig,
+    setActiveGateway,
+    setTheme,
+    setBanner,
+    readBotGateways,
+    readEnv,
+    SUPPORTED_PROVIDERS
+};

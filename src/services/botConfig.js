@@ -64,6 +64,7 @@ const readEnv = (containerName) => {
 };
 
 // Update sebagian nilai .env (key-value) tanpa menghapus key lain.
+// Juga tulis ke DB settings table (prioritas bot = DB > .env).
 const updateEnv = (containerName, updates) => {
     const envPath = path.join(DATA_DIR, containerName, '.env');
     if (!fs.existsSync(envPath)) return { success: false, error: '.env tidak ditemukan' };
@@ -84,7 +85,25 @@ const updateEnv = (containerName, updates) => {
         if (!seen.has(k)) out.push(`${k}=${String(v).includes('#') || String(v).includes(' ') ? `"${v}"` : v}`);
     }
     fs.writeFileSync(envPath, out.join('\n'));
-    return { success: true, updated: [...seen] };
+
+    // Tulis juga ke DB settings (bot prioritas baca dari DB)
+    try {
+        const ddb = openBotDb(containerName);
+        if (ddb) {
+            // Pastikan tabel settings ada
+            ddb.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT DEFAULT (datetime('now')))`);
+            const upsert = ddb.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`);
+            const tx = ddb.transaction(() => {
+                for (const [k, v] of Object.entries(updates)) {
+                    upsert.run(k, String(v));
+                }
+            });
+            tx();
+            ddb.close();
+        }
+    } catch (_) { /* DB write best-effort, .env is fallback */ }
+
+    return { success: true, updated: Object.keys(updates) };
 };
 
 const getBannerFiles = (containerName) => {
@@ -99,9 +118,23 @@ const getBannerFiles = (containerName) => {
 
 /**
  * Ambil konfigurasi lengkap bot (gateway + theme + banner + semua env field).
+ * Prioritas: DB settings > .env (DB override .env jika key ada di keduanya).
  */
 const getBotConfig = (containerName) => {
     const env = readEnv(containerName);
+
+    // Override dari DB settings (prioritas lebih tinggi)
+    try {
+        const ddb = openBotDb(containerName);
+        if (ddb) {
+            ddb.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT DEFAULT (datetime('now')))`);
+            const rows = ddb.prepare('SELECT key, value FROM settings').all();
+            for (const r of rows) {
+                if (r.value !== null && r.value !== '') env[r.key] = r.value;
+            }
+            ddb.close();
+        }
+    } catch (_) { /* fallback to .env only */ }
     const gw = readBotGateways(containerName);
     return {
         gateways: gw.success ? gw.gateways : [],

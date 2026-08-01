@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const routes = require('./routes');
-const { startBot, stopBot } = require('./bot');
+const { startExpiryCron, startAutoBackupCron } = require('./cron');
 const app = express();
 const PORT = process.env.PORT || 800;
 
@@ -36,13 +36,18 @@ const server = app.listen(PORT, () => {
     console.log(`   Deploy:  http://localhost:${PORT}/deploy`);
 });
 
-// Start license bot
-startBot();
+// Start license bot — TIDAK AKTIF: semua admin control pindah ke web panel (/admin).
+// Kalau mau re-enable, uncomment require di atas + panggil startBot() di sini.
+// startBot();
+
+// Start crons (expiry check + auto backup) — jalan tanpa bot Telegram.
+startExpiryCron();
+startAutoBackupCron();
+console.log('⏰ Crons started (expiry check + auto backup)');
 
 // Graceful shutdown
 const shutdown = (signal) => {
     console.log(`\n⏹ ${signal} received, shutting down...`);
-    stopBot();
     server.close(() => {
         console.log('✅ Server closed');
         process.exit(0);

@@ -3,6 +3,9 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const db = require('../db');
 const dockerEngine = require('../docker');
 
@@ -367,6 +370,131 @@ router.post('/api/admin/deployments/:name/timer', requireAuth, adminLimiter, (re
 
         db.updateExpiresAt(name, newExpiry.toISOString());
         res.json({ success: true, new_expires_at: newExpiry.toISOString() });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * GET /api/admin/deployments/:name/export
+ * Download container data (.tar.gz) — env + db + assets.
+ */
+router.get('/api/admin/deployments/:name/export', requireAuth, async (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+
+        const tarFile = dockerEngine.exportContainer(name);
+        if (!tarFile) return res.status(404).json({ success: false, error: 'Data container tidak ditemukan' });
+
+        const safeName = (dep.store_name || name).replace(/[^a-zA-Z0-9_-]/g, '_');
+        res.download(tarFile, `${safeName}_export.tar.gz`, () => {
+            try { fs.unlinkSync(tarFile); } catch (e) { }
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/deployments/:name/backup
+ * Backup DB bot → download file .db
+ */
+router.get('/api/admin/deployments/:name/backup', requireAuth, async (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+
+        const backupFile = dockerEngine.backupDatabase(name);
+        if (!backupFile) return res.status(404).json({ success: false, error: 'Database tidak ditemukan' });
+
+        const safeName = (dep.store_name || name).replace(/[^a-zA-Z0-9_-]/g, '_');
+        res.download(backupFile, `${safeName}_backup.db`, () => {
+            try { fs.unlinkSync(backupFile); } catch (e) { }
+        });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/deployments/import (multer: file)
+ * Import container dari .tar.gz export.
+ */
+const importUpload = multer({
+    dest: path.join(__dirname, '../../uploads/'),
+    limits: { fileSize: 200 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (file.originalname.endsWith('.tar.gz') || file.mimetype === 'application/gzip' || file.mimetype === 'application/x-gzip') {
+            cb(null, true);
+        } else cb(new Error('File harus .tar.gz'));
+    }
+});
+
+router.post('/api/admin/deployments/import', requireAuth, importUpload.single('file'), async (req, res) => {
+    try {
+        const MAX_CONTAINERS = parseInt(process.env.MAX_CONTAINERS) || 8;
+        const running = db.getRunningCount();
+        if (running >= MAX_CONTAINERS) {
+            if (req.file) fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, error: `Max containers reached (${running}/${MAX_CONTAINERS})` });
+        }
+        if (!req.file) return res.status(400).json({ success: false, error: 'File wajib diupload' });
+
+        const usedPorts = db.getUsedPorts();
+        const result = await dockerEngine.importContainer(req.file.path, usedPorts);
+
+        // Cleanup
+        try { fs.unlinkSync(req.file.path); } catch (e) { }
+
+        if (!result.success) {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+
+        // Create deployment record
+        db.createImportedDeployment({
+            buyer_name: result.buyerName,
+            container_name: result.containerName,
+            port: result.port,
+            store_name: result.storeName,
+            bot_token: result.botToken
+        });
+
+        res.json({
+            success: true,
+            message: 'Import berhasil',
+            container: {
+                store_name: result.storeName,
+                container_name: result.containerName,
+                port: result.port,
+                webhook_url: result.webhookUrl
+            }
+        });
+    } catch (e) {
+        if (req.file) { try { fs.unlinkSync(req.file.path); } catch (_) { } }
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * POST /api/admin/backup-all
+ * Backup semua running container → response list file (tetap di server).
+ */
+router.post('/api/admin/backup-all', requireAuth, adminLimiter, async (req, res) => {
+    try {
+        const deployments = db.getDeployments().filter(d => d.status === 'running');
+        if (deployments.length === 0) {
+            return res.json({ success: true, backups: [], message: 'Tidak ada running container' });
+        }
+
+        const backups = [];
+        for (const dep of deployments) {
+            const file = dockerEngine.backupDatabase(dep.container_name);
+            if (file) backups.push({ container: dep.container_name, store: dep.store_name, file });
+        }
+        res.json({ success: true, backups });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

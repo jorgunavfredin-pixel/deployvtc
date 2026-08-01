@@ -14,8 +14,8 @@ const escMd = (t) => String(t || '').replace(/[_*`\[]/g, '\\$&');
  * Start expiry check cron (runs every hour)
  */
 const startExpiryCron = (bot, admins) => {
-    botRef = bot;
-    adminIds = admins;
+    botRef = bot || null;
+    adminIds = admins || [];
 
     // Check every hour
     setInterval(checkExpiredDeployments, 60 * 60 * 1000);

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import {
     LayoutDashboard, KeyRound, Boxes, LogOut, RefreshCw, Plus,
     Play, Square, RotateCw, Hammer, Trash2, Copy, Clock, ExternalLink,
-    Users, Server, Wallet, HardDrive, Loader2
+    Users, Server, Wallet, HardDrive, Loader2, Download, Upload, Database
 } from 'lucide-react'
 import { LogoIcon } from '../components/Logo'
 
@@ -34,6 +34,11 @@ export default function AdminPanel({ onLogout }) {
     // Logs modal
     const [logDep, setLogDep] = useState(null)
     const [logs, setLogs] = useState('')
+
+    // Import modal
+    const [showImport, setShowImport] = useState(false)
+    const [importFile, setImportFile] = useState(null)
+    const [importing, setImporting] = useState(false)
 
     const api = async (url, opts = {}) => {
         const res = await fetch(url, {
@@ -163,6 +168,24 @@ export default function AdminPanel({ onLogout }) {
         setBusy('')
     }
 
+    const doImport = async () => {
+        if (!importFile) return notify('Pilih file .tar.gz dulu')
+        setImporting(true)
+        try {
+            const fd = new FormData()
+            fd.append('file', importFile)
+            const res = await fetch('/api/admin/deployments/import', { method: 'POST', body: fd })
+            const data = await res.json()
+            if (!data.success) throw new Error(data.error || 'Import gagal')
+            notify(`✅ Import berhasil: ${data.container.store_name} (${data.container.container_name})`)
+            setShowImport(false)
+            setImportFile(null)
+            await loadDeployments()
+            await loadDashboard()
+        } catch (e) { notify(`❌ ${e.message}`) }
+        setImporting(false)
+    }
+
     // ==================== RENDER ====================
 
     if (loading) {
@@ -228,6 +251,7 @@ export default function AdminPanel({ onLogout }) {
                             onAction={depAction}
                             onLogs={showLogs}
                             onTimer={setTimerDep}
+                            onImport={() => setShowImport(true)}
                         />
                     )}
                 </main>
@@ -291,6 +315,32 @@ export default function AdminPanel({ onLogout }) {
                         <pre className="admin-logs">{logs}</pre>
                         <div className="admin-modal-actions">
                             <button className="btn btn-outline" onClick={() => setLogDep(null)}>Tutup</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showImport && (
+                <div className="admin-modal-overlay" onClick={() => setShowImport(false)}>
+                    <div className="admin-modal" onClick={e => e.stopPropagation()}>
+                        <h3>📥 Import Container</h3>
+                        <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                            Upload file <code>.tar.gz</code> hasil export dari VPS lain. Port & webhook URL dibuat ulang otomatis.
+                        </p>
+                        <div className="form-group">
+                            <label className="form-label">File Export (.tar.gz)</label>
+                            <input
+                                className="form-input"
+                                type="file"
+                                accept=".tar.gz,application/gzip"
+                                onChange={e => setImportFile(e.target.files[0])}
+                            />
+                        </div>
+                        <div className="admin-modal-actions">
+                            <button className="btn btn-outline" onClick={() => { setShowImport(false); setImportFile(null) }}>Batal</button>
+                            <button className="btn btn-primary" onClick={doImport} disabled={importing}>
+                                {importing ? <><Loader2 className="spin" size={14} /> Mengimpor...</> : 'Import'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -429,7 +479,7 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke }) {
     )
 }
 
-function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer }) {
+function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImport }) {
     const [filter, setFilter] = useState('all')
     const filtered = filter === 'all' ? deployments : deployments.filter(d => d.status === filter)
 
@@ -437,6 +487,7 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer }) {
         <div>
             <div className="admin-title-row">
                 <h2 className="admin-title">Deployments</h2>
+                <button className="btn btn-primary btn-sm" onClick={onImport}><Upload size={15} /> Import Container</button>
             </div>
             <div className="admin-filter-row">
                 {['all', 'running', 'stopped', 'expired'].map(f => (
@@ -459,13 +510,15 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer }) {
                                     <td>{fmtDate(d.expires_at)}</td>
                                     <td>
                                         <div className="admin-actions">
-                                            {!cs.running && <button className="btn btn-success btn-xs" disabled={busy === `start-${d.container_name}`} onClick={() => onAction(d.container_name, 'start')}><Play size={12} /></button>}
-                                            {cs.running && <button className="btn btn-danger btn-xs" disabled={busy === `stop-${d.container_name}`} onClick={() => onAction(d.container_name, 'stop')}><Square size={12} /></button>}
-                                            {cs.running && <button className="btn btn-outline btn-xs" disabled={busy === `restart-${d.container_name}`} onClick={() => onAction(d.container_name, 'restart')}><RotateCw size={12} /></button>}
-                                            <button className="btn btn-outline btn-xs" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')}><Hammer size={12} /></button>
-                                            <button className="btn btn-outline btn-xs" onClick={() => onLogs(d.container_name)}><ExternalLink size={12} /></button>
-                                            <button className="btn btn-outline btn-xs" onClick={() => onTimer(d)}><Clock size={12} /></button>
-                                            <button className="btn btn-danger btn-xs" disabled={busy === `delete-${d.container_name}`} onClick={() => onAction(d.container_name, 'delete')}><Trash2 size={12} /></button>
+                                            {!cs.running && <button className="btn btn-success btn-xs" disabled={busy === `start-${d.container_name}`} onClick={() => onAction(d.container_name, 'start')} title="Start"><Play size={12} /></button>}
+                                            {cs.running && <button className="btn btn-danger btn-xs" disabled={busy === `stop-${d.container_name}`} onClick={() => onAction(d.container_name, 'stop')} title="Stop"><Square size={12} /></button>}
+                                            {cs.running && <button className="btn btn-outline btn-xs" disabled={busy === `restart-${d.container_name}`} onClick={() => onAction(d.container_name, 'restart')} title="Restart"><RotateCw size={12} /></button>}
+                                            <button className="btn btn-outline btn-xs" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')} title="Rebuild"><Hammer size={12} /></button>
+                                            <button className="btn btn-outline btn-xs" onClick={() => onLogs(d.container_name)} title="Logs"><ExternalLink size={12} /></button>
+                                            <button className="btn btn-outline btn-xs" onClick={() => onTimer(d)} title="Set Expiry"><Clock size={12} /></button>
+                                            <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/export`} target="_blank" rel="noreferrer" title="Export (.tar.gz)"><Download size={12} /></a>
+                                            <a className="btn btn-outline btn-xs" href={`/api/admin/deployments/${d.container_name}/backup`} target="_blank" rel="noreferrer" title="Backup DB"><Database size={12} /></a>
+                                            <button className="btn btn-danger btn-xs" disabled={busy === `delete-${d.container_name}`} onClick={() => onAction(d.container_name, 'delete')} title="Hapus"><Trash2 size={12} /></button>
                                         </div>
                                     </td>
                                 </tr>

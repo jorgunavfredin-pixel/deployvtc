@@ -695,7 +695,10 @@ function ConfigModal({ dep, data, onClose, onDone }) {
 
     const envFor = (keys) => {
         const env = {}
-        for (const k of keys) if (form[k] !== undefined) env[k] = form[k]
+        for (const k of keys) {
+            const formKey = k.toLowerCase()
+            if (form[formKey] !== undefined && form[formKey] !== '') env[k] = form[formKey]
+        }
         return env
     }
 

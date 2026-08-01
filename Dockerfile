@@ -15,14 +15,12 @@ COPY package*.json ./
 RUN npm ci --only=production
 
 # ================================
-# Frontend build stage — compiles the React admin panel to static files
+# Frontend build stage — dist sudah di-build & di-track di repo (frontend/dist),
+# jadi cukup copy hasilnya, tidak perlu install npm di dalam image.
 FROM node:18-alpine AS webbuilder
 
 WORKDIR /web
-COPY admin-web/package*.json ./
-RUN npm install
-COPY admin-web/ ./
-RUN npm run build
+COPY frontend/dist ./dist
 
 # ================================
 FROM node:18-alpine

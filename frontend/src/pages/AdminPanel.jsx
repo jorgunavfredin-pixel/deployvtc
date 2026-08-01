@@ -712,7 +712,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
             })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
-            notifyLocal(restart ? 'Bot Telegram disimpan + restart' : 'Bot Telegram disimpan (belum restart)')
+            notifyLocal(d.message || 'Bot Telegram disimpan')
             onDone()
         } catch (e) { notifyLocal(e.message, 'err') }
         setSaving('')
@@ -727,7 +727,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
             })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
-            notifyLocal(restart ? 'Identitas disimpan + restart' : 'Identitas disimpan (belum restart)')
+            notifyLocal(d.message || 'Identitas disimpan')
             onDone()
         } catch (e) { notifyLocal(e.message, 'err') }
         setSaving('')
@@ -742,7 +742,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
             })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
-            notifyLocal(restart ? 'Password admin disimpan + restart' : 'Password admin disimpan (belum restart)')
+            notifyLocal(d.message || 'Password admin disimpan')
             onDone()
         } catch (e) { notifyLocal(e.message, 'err') }
         setSaving('')
@@ -883,11 +883,11 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                                 <div className="config-section-title"><Settings2 size={15} /> Bot Telegram</div>
                                 <div className="config-grid">
                                     <div className="form-group">
-                                        <label className="form-label">Bot Token</label>
+                                        <label className="form-label">Bot Token <span className="cfg-tag cfg-tag-restart">perlu restart</span></label>
                                         <input className="form-input" type="password" placeholder="123456:ABC-DEF..." value={form.bot_token || ''} onChange={set('bot_token')} />
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Admin Telegram ID</label>
+                                        <label className="form-label">Admin Telegram ID <span className="cfg-tag cfg-tag-restart">perlu restart</span></label>
                                         <input className="form-input" placeholder="123456789" value={form.admin_telegram_id || ''} onChange={set('admin_telegram_id')} />
                                     </div>
                                 </div>
@@ -896,7 +896,10 @@ function ConfigModal({ dep, data, onClose, onDone }) {
 
                             {/* IDENTITAS */}
                             <div className="config-section">
-                                <div className="config-section-title"><Store size={15} /> Identitas Bot</div>
+                                <div className="config-section-title">
+                                    <Store size={15} /> Identitas Bot
+                                    <span className="cfg-tag cfg-tag-live">live tanpa restart</span>
+                                </div>
                                 <div className="config-grid">
                                     <div className="form-group">
                                         <label className="form-label">Nama Toko</label>
@@ -923,7 +926,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                                 <div className="config-section-title"><ShieldCheck size={15} /> Admin Panel</div>
                                 <div className="config-grid">
                                     <div className="form-group">
-                                        <label className="form-label">Password Admin Panel</label>
+                                        <label className="form-label">Password Admin Panel <span className="cfg-tag cfg-tag-restart">perlu restart</span></label>
                                         <input className="form-input" type="password" placeholder="••••••••" value={form.admin_panel_password || ''} onChange={set('admin_panel_password')} />
                                     </div>
                                 </div>

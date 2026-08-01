@@ -630,10 +630,16 @@ router.post('/api/admin/deployments/:name/config/env', requireAuth, adminLimiter
         const { env, restart } = req.body || {};
         if (!env || typeof env !== 'object') return res.status(400).json({ success: false, error: 'env wajib diisi' });
 
+        // Alias: UI kirim ADMIN_TELEGRAM_ID, bot sebenarnya baca ADMIN_ID
+        if (env.ADMIN_TELEGRAM_ID !== undefined && env.ADMIN_ID === undefined) {
+            env.ADMIN_ID = env.ADMIN_TELEGRAM_ID;
+        }
+
         // Whitelist key yang boleh diubah
         const allowed = [
-            'BOT_TOKEN', 'ADMIN_TELEGRAM_ID',
+            'BOT_TOKEN', 'ADMIN_ID',
             'STORE_NAME', 'SUPPORT_USERNAME', 'SUPPORT_HOURS', 'ORDER_PREFIX',
+            'PAYMENT_TIMEOUT_MINUTES',
             'ADMIN_PANEL_PASSWORD', 'THEME_PRESET',
             'PAKASIR_API_KEY', 'PAKASIR_SLUG',
             'WIJAYAPAY_CODE_MERCHANT', 'WIJAYAPAY_API_KEY',
@@ -651,7 +657,24 @@ router.post('/api/admin/deployments/:name/config/env', requireAuth, adminLimiter
 
         const restarted = maybeRestart(name, restart);
         logAudit('GANTI_ENV', `${dep.store_name}: ${Object.keys(updates).join(', ')}${restarted ? ' + restart' : ''}`, 'admin');
-        res.json({ success: true, updated: Object.keys(updates), restarted, message: `Konfigurasi disimpan${restarted ? '. Container restarting...' : '. Belum restart.'}` });
+
+        // live = langsung ngefek (tersimpan di DB settings bot)
+        // pending = baru ngefek setelah container restart
+        const pending = restarted ? [] : (result.needsRestart || []);
+        let message = 'Konfigurasi disimpan';
+        if (restarted) message += '. Container restarting...';
+        else if (pending.length) message += `. Perlu restart untuk: ${pending.join(', ')}`;
+        else message += '. Langsung aktif tanpa restart.';
+
+        res.json({
+            success: true,
+            updated: result.updated || Object.keys(updates),
+            live: result.live || [],
+            needs_restart: pending,
+            restarted,
+            db_error: result.dbError || null,
+            message
+        });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

@@ -2468,6 +2468,30 @@ h3 {
   border-radius: 999px;
 }
 
+/* Tag penanda: live vs perlu restart */
+.cfg-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.cfg-tag-live {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.cfg-tag-restart {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
 /* Grid 2 kolom compact untuk field config */
 .config-grid {
   display: grid;

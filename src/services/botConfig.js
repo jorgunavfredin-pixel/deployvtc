@@ -63,6 +63,24 @@ const readEnv = (containerName) => {
     return env;
 };
 
+/**
+ * Peta ENV (uppercase, .env) → key tabel settings bot (lowercase).
+ * Bot pakai db.getConfig(settingKey, ENV_KEY, fallback):
+ *   prioritas 1 = settings[settingKey]  → live, tanpa restart
+ *   prioritas 2 = process.env[ENV_KEY]  → butuh restart container
+ * Hanya key di peta ini yang bisa live-update; sisanya env-only.
+ */
+const ENV_TO_SETTING = {
+    STORE_NAME: 'store_name',
+    SUPPORT_USERNAME: 'support_username',
+    SUPPORT_HOURS: 'support_hours',
+    ORDER_PREFIX: 'order_prefix',
+    PAYMENT_TIMEOUT_MINUTES: 'payment_timeout_minutes'
+};
+
+// Key yang cuma dibaca saat bot start (Telegraf init / docker env) → wajib restart.
+const RESTART_ONLY_KEYS = ['BOT_TOKEN', 'ADMIN_ID', 'THEME_PRESET', 'ADMIN_PANEL_PASSWORD'];
+
 // Update sebagian nilai .env (key-value) tanpa menghapus key lain.
 // Juga tulis ke DB settings table (prioritas bot = DB > .env).
 const updateEnv = (containerName, updates) => {
@@ -86,24 +104,56 @@ const updateEnv = (containerName, updates) => {
     }
     fs.writeFileSync(envPath, out.join('\n'));
 
-    // Tulis juga ke DB settings (bot prioritas baca dari DB)
-    try {
-        const ddb = openBotDb(containerName);
-        if (ddb) {
-            // Pastikan tabel settings ada
-            ddb.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT DEFAULT (datetime('now')))`);
-            const upsert = ddb.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`);
-            const tx = ddb.transaction(() => {
-                for (const [k, v] of Object.entries(updates)) {
-                    upsert.run(k, String(v));
-                }
-            });
-            tx();
-            ddb.close();
-        }
-    } catch (_) { /* DB write best-effort, .env is fallback */ }
+    // Tulis juga ke DB settings bot supaya langsung live tanpa restart.
+    // PENTING: bot baca lewat db.getConfig(settingKey, ENV_KEY) dengan key
+    // lowercase (mis. 'store_name'), dan tabelnya cuma (key, value).
+    const live = [];
+    let dbError = null;
+    const mapped = Object.entries(updates)
+        .filter(([k]) => ENV_TO_SETTING[k])
+        .map(([k, v]) => [ENV_TO_SETTING[k], String(v)]);
 
-    return { success: true, updated: Object.keys(updates) };
+    // Ganti password panel: hash custom di DB bot menang atas .env, jadi hash
+    // lama harus dihapus + sesi lama dicabut supaya password baru dari .env dipakai.
+    const resetPanelPassword = updates.ADMIN_PANEL_PASSWORD !== undefined;
+
+    if (mapped.length || resetPanelPassword) {
+        let ddb = null;
+        try {
+            ddb = openBotDb(containerName);
+            if (ddb) {
+                ddb.exec('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)');
+                const upsert = ddb.prepare(
+                    'INSERT INTO settings (key, value) VALUES (?, ?) ' +
+                    'ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+                );
+                ddb.transaction(() => {
+                    for (const [k, v] of mapped) { upsert.run(k, v); live.push(k); }
+
+                    if (resetPanelPassword) {
+                        ddb.prepare("DELETE FROM settings WHERE key = 'admin_password_hash'").run();
+                        const row = ddb.prepare("SELECT value FROM settings WHERE key = 'admin_session_version'").get();
+                        const next = (parseInt(row && row.value) || 1) + 1;
+                        upsert.run('admin_session_version', String(next));
+                        live.push('admin_password_hash(reset)');
+                    }
+                })();
+            }
+        } catch (e) {
+            dbError = e.message;
+        } finally {
+            if (ddb) { try { ddb.close(); } catch (_) { } }
+        }
+    }
+
+    const keys = Object.keys(updates);
+    return {
+        success: true,
+        updated: keys,
+        live,                                                  // efektif tanpa restart
+        needsRestart: keys.filter(k => !ENV_TO_SETTING[k]),    // baru jalan setelah restart
+        dbError
+    };
 };
 
 const getBannerFiles = (containerName) => {
@@ -123,18 +173,24 @@ const getBannerFiles = (containerName) => {
 const getBotConfig = (containerName) => {
     const env = readEnv(containerName);
 
-    // Override dari DB settings (prioritas lebih tinggi)
+    // Overlay dari DB settings (prioritas sama seperti bot: DB > .env).
+    // Key DB lowercase → dipetakan balik ke ENV uppercase.
+    let ddb = null;
     try {
-        const ddb = openBotDb(containerName);
+        ddb = openBotDb(containerName);
         if (ddb) {
-            ddb.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT DEFAULT (datetime('now')))`);
             const rows = ddb.prepare('SELECT key, value FROM settings').all();
+            const settingToEnv = Object.fromEntries(
+                Object.entries(ENV_TO_SETTING).map(([e, s]) => [s, e])
+            );
             for (const r of rows) {
-                if (r.value !== null && r.value !== '') env[r.key] = r.value;
+                const envKey = settingToEnv[r.key];
+                if (envKey && r.value != null && r.value !== '') env[envKey] = r.value;
             }
-            ddb.close();
         }
-    } catch (_) { /* fallback to .env only */ }
+    } catch (_) { /* tabel settings belum ada → pakai .env saja */ } finally {
+        if (ddb) { try { ddb.close(); } catch (_) { } }
+    }
     const gw = readBotGateways(containerName);
     return {
         gateways: gw.success ? gw.gateways : [],
@@ -144,7 +200,8 @@ const getBotConfig = (containerName) => {
         // Semua field yang bisa di-edit (seperti deploy awal)
         config: {
             bot_token: env.BOT_TOKEN || '',
-            admin_telegram_id: env.ADMIN_TELEGRAM_ID || '',
+            // Bot pakai ADMIN_ID (bukan ADMIN_TELEGRAM_ID) — lihat src/index.js bot
+            admin_telegram_id: env.ADMIN_ID || env.ADMIN_TELEGRAM_ID || '',
             store_name: env.STORE_NAME || '',
             support_username: env.SUPPORT_USERNAME || '',
             support_hours: env.SUPPORT_HOURS || '',
@@ -291,5 +348,7 @@ module.exports = {
     updateEnv,
     readBotGateways,
     readEnv,
-    SUPPORTED_PROVIDERS
+    SUPPORTED_PROVIDERS,
+    ENV_TO_SETTING,
+    RESTART_ONLY_KEYS
 };

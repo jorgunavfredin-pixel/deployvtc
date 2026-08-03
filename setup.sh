@@ -211,34 +211,35 @@ if [ "$CREATE_ENV" = true ]; then
     DETECTED_IP=$(curl -s ifconfig.me 2>/dev/null || echo "localhost")
     echo -e "VPS IP detected: ${GREEN}${DETECTED_IP}${NC}"
 
-    # Bot Token (WAJIB)
-    echo ""
-    echo "Deploy Bot Token (dari @BotFather):"
-    read -p "> " BOT_TOKEN
-    while [ -z "$BOT_TOKEN" ]; do
-        echo -e "${RED}Token wajib diisi!${NC}"
-        read -p "> " BOT_TOKEN
-    done
-
     # Max Containers
     echo ""
     echo "Max containers (default: 8):"
     read -p "> " MAX_C
     MAX_C=${MAX_C:-8}
 
+    # Admin Panel Password (opsional — kosong = auto-generate)
+    echo ""
+    echo "Password admin panel deploy (default: auto-generate):"
+    read -p "> " ADMIN_PASS
+
     cat > .env << EOF
 # Vitacimin Deploy Platform
-DEPLOY_BOT_TOKEN=${BOT_TOKEN}
-ADMIN_ID=1908897261
 VPS_IP=${DETECTED_IP}
 BOT_TEMPLATE_IMAGE=store-bot
 DATA_DIR=/root/data
-TELEGRAM_LINK=https://t.me/yuriot
 MAX_CONTAINERS=${MAX_C}
 PORT=800
+# Perpanjangan license (Renew)
+RENEW_PRICE_PER_MONTH=30000
 # Auto Backup (Google Drive via rclone)
 RCLONE_REMOTE=gdrive
 BACKUP_HOUR=3
+# Admin Web Panel (semua opsional; kosong = auto-generate & persist)
+ADMIN_PANEL_PASSWORD=${ADMIN_PASS}
+ADMIN_JWT_SECRET=
+ADMIN_PATH=
+# Telegram link untuk frontend (default t.me/yuriot)
+TELEGRAM_LINK=
 EOF
 
     echo -e "${GREEN}.env created!${NC}"

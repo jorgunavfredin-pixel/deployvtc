@@ -78,7 +78,7 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             license_key, bot_token, admin_id,
             store_name, support_username,
             order_prefix, support_hours, theme_preset,
-            admin_panel_password,
+            admin_panel_password, rent_bot_enabled,
             // PaKasir
             pakasir_api_key, pakasir_slug,
             // WijayaPay
@@ -124,6 +124,7 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
         // Generate random port
         const port = db.generateRandomPort();
         const buyerName = licenseCheck.license.buyer_name || 'buyer';
+        const rentBotEnabled = String(rent_bot_enabled || '').toLowerCase() === 'true';
 
         // Build .env vars (sesuai .env.example bot vitaicmin)
         const envVars = {
@@ -137,6 +138,7 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             ORDER_PREFIX: (order_prefix || 'ORD').trim(),
             SUPPORT_HOURS: (support_hours || '09:00 - 23:00 WIB').trim(),
             THEME_PRESET: (theme_preset || 'gold').toLowerCase(),
+            RENT_BOT_ENABLED: rentBotEnabled ? 'true' : 'false',
             // Admin panel: hanya di-set untuk tier 'full'. Tier 'chat' tanpa
             // password → panel /admin nonaktif (backend bot mewajibkan password).
             ...(tier === 'full' && admin_panel_password
@@ -176,7 +178,7 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
         db.markLicenseUsed(license_key.trim().toUpperCase());
 
         // Save deployment record
-        db.createDeployment({
+        const deployment = db.createDeployment({
             license_id: licenseCheck.license.id,
             license_key: license_key.trim().toUpperCase(),
             buyer_name: buyerName,
@@ -184,7 +186,8 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             port,
             store_name: store_name.trim(),
             bot_token: bot_token.trim().slice(0, 10) + '...',
-            initial_days: licenseCheck.license.initial_days
+            initial_days: licenseCheck.license.initial_days,
+            rent_bot_enabled: rentBotEnabled
         });
 
         // Cleanup uploaded banner temp file
@@ -208,6 +211,11 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             containerName: result.containerName,
             pakasirSlug: (pakasir_slug || '').trim(),
             adminUrl: `${baseWebhook}/admin`,
+            rentBotEnabled,
+            baseDays: deployment.base_days,
+            bonusDays: deployment.bonus_days,
+            totalDays: deployment.total_days,
+            expiresAt: deployment.expires_at,
             instructions: [
                 `1. Buka panel admin: ${baseWebhook}/admin (password: yang kamu isi)`,
                 ...webhooks.map(w => `2. Set callback ${w.provider}: ${w.url}`),

@@ -128,7 +128,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [form, setForm] = useState({
         botToken: '', adminId: '', storeName: '', orderPrefix: 'ORD',
         adminPanelPassword: '', supportUsername: '',
-        supportHours: '09:00 - 23:00 WIB', themePreset: '',
+        supportHours: '09:00 - 23:00 WIB', themePreset: '', rentBotEnabled: false,
         // PaKasir
         pakasirApiKey: '', pakasirSlug: '',
         // WijayaPay
@@ -230,6 +230,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
         fd.append('support_username', form.supportUsername.trim())
         fd.append('support_hours', form.supportHours.trim())
         fd.append('theme_preset', form.themePreset)
+        fd.append('rent_bot_enabled', form.rentBotEnabled ? 'true' : 'false')
         // PaKasir
         fd.append('pakasir_api_key', form.pakasirApiKey.trim())
         fd.append('pakasir_slug', form.pakasirSlug.trim())
@@ -488,6 +489,21 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </div>
             </FieldSection>
 
+            <FieldSection icon="◇" title="Bonus Sewa Bot" desc="Tawaran opsional untuk masa aktif deployment pertama">
+                <label className="rent-bonus-card">
+                    <input
+                        type="checkbox"
+                        checked={form.rentBotEnabled}
+                        onChange={e => setForm(prev => ({ ...prev, rentBotEnabled: e.target.checked }))}
+                    />
+                    <span className="rent-bonus-copy">
+                        <strong>Aktifkan Menu Sewa Bot + Bonus 14 Hari</strong>
+                        <span>Aktifkan menu Sewa Bot di bot kamu untuk menambah masa aktif pembelianmu <b>+14 hari</b>.</span>
+                        <small>Bonus hanya diberikan satu kali pada deployment pertama.</small>
+                    </span>
+                </label>
+            </FieldSection>
+
             <FieldSection icon="🛟" title="Support" desc="Info kontak bantuan untuk buyer">
                 <div className="form-row">
                     <div className="form-group">
@@ -585,6 +601,8 @@ function ResultStep({ data, licenseKey, tier }) {
                 <h3>📋 Detail Deployment</h3>
                 <div className="result-item"><span className="result-label">Status</span><span className="result-value" style={{ color: 'var(--success)' }}>🟢 Running</span></div>
                 <div className="result-item"><span className="result-label">Port</span><span className="result-value">{data.port}</span></div>
+                <div className="result-item"><span className="result-label">Masa Aktif Awal</span><span className="result-value">{data.baseDays} hari{data.bonusDays > 0 ? ` + ${data.bonusDays} hari bonus` : ''} = <strong>{data.totalDays} hari</strong></span></div>
+                {data.bonusDays > 0 && <div className="result-item"><span className="result-label">Bonus Sewa Bot</span><span className="result-value" style={{ color: 'var(--success)' }}>✓ Aktif (+14 hari)</span></div>}
                 {!isChatOnly && (
                     <div className="result-item">
                         <span className="result-label">Admin Panel</span>

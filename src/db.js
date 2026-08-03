@@ -71,6 +71,16 @@ try {
   console.log('[DB] Added initial_days column to licenses');
 }
 
+// Audit durasi deployment pertama. Bonus Sewa Bot hanya dihitung saat INSERT deployment.
+for (const [column, sql] of [
+  ['base_days', 'ALTER TABLE deployments ADD COLUMN base_days INTEGER DEFAULT 30'],
+  ['bonus_days', 'ALTER TABLE deployments ADD COLUMN bonus_days INTEGER DEFAULT 0'],
+  ['rent_bot_enabled', 'ALTER TABLE deployments ADD COLUMN rent_bot_enabled INTEGER DEFAULT 0']
+]) {
+  try { db.prepare(`SELECT ${column} FROM deployments LIMIT 1`).get(); }
+  catch (_) { db.exec(sql); console.log(`[DB] Added ${column} to deployments`); }
+}
+
 // ==================== LICENSE ====================
 
 const generateLicenseKey = () => {
@@ -161,13 +171,16 @@ const sanitizeContainerName = (buyerName) => {
 
 const createDeployment = (data) => {
     const created_at = new Date().toISOString();
-    // Durasi awal dari license (initial_days), fallback 30 hari
-    const days = parseInt(data.initial_days) > 0 ? parseInt(data.initial_days) : 30;
-    const expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    const baseDays = parseInt(data.initial_days) > 0 ? parseInt(data.initial_days) : 30;
+    const rentBotEnabled = data.rent_bot_enabled === true || data.rent_bot_enabled === 1;
+    const bonusDays = rentBotEnabled ? 14 : 0;
+    const totalDays = baseDays + bonusDays;
+    const expires_at = new Date(Date.now() + totalDays * 24 * 60 * 60 * 1000).toISOString();
     const result = db.prepare(
-        'INSERT INTO deployments (license_id, license_key, buyer_name, container_name, port, store_name, bot_token, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(data.license_id, data.license_key, data.buyer_name || '', data.container_name, data.port, data.store_name, data.bot_token, 'running', created_at, expires_at);
-    return { id: result.lastInsertRowid, ...data, status: 'running', created_at, expires_at };
+        `INSERT INTO deployments (license_id,license_key,buyer_name,container_name,port,store_name,bot_token,status,created_at,expires_at,base_days,bonus_days,rent_bot_enabled)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).run(data.license_id, data.license_key, data.buyer_name || '', data.container_name, data.port, data.store_name, data.bot_token, 'running', created_at, expires_at, baseDays, bonusDays, rentBotEnabled ? 1 : 0);
+    return { id: result.lastInsertRowid, ...data, status: 'running', created_at, expires_at, base_days: baseDays, bonus_days: bonusDays, total_days: totalDays, rent_bot_enabled: rentBotEnabled };
 };
 
 const getDeployments = () => {

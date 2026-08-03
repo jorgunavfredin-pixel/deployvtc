@@ -3,7 +3,7 @@
 # Multi-stage build for smaller image
 # ================================
 
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Install build dependencies for native modules (sharp, better-sqlite3)
 RUN apk add --no-cache python3 make g++ vips-dev
@@ -17,13 +17,13 @@ RUN npm ci --only=production
 # ================================
 # Frontend build stage — dist sudah di-build & di-track di repo (frontend/dist),
 # jadi cukup copy hasilnya, tidak perlu install npm di dalam image.
-FROM node:18-alpine AS webbuilder
+FROM node:20-alpine AS webbuilder
 
 WORKDIR /web
 COPY frontend/dist ./dist
 
 # ================================
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Runtime dependencies for sharp, better-sqlite3, and SVG font rendering
 RUN apk add --no-cache vips fontconfig ttf-freefont font-noto \

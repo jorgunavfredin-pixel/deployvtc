@@ -302,6 +302,36 @@ router.get('/api/admin/deployments', requireAuth, adminLimiter, async (req, res)
 });
 
 /**
+ * POST /api/admin/deployments/:name/timer { days, mode }
+ * Set/Add expiry. mode: 'add' (tambah dari expired) | 'set' (dari sekarang).
+ */
+router.post('/api/admin/deployments/:name/timer', requireAuth, adminLimiter, (req, res) => {
+    try {
+        const name = String(req.params.name || '');
+        const { days, mode } = req.body || {};
+        const d = parseInt(days);
+        if (!d || d < 1 || d > 9999) return res.status(400).json({ success: false, error: 'Hari harus 1-9999' });
+
+        const dep = db.getDeploymentByContainer(name);
+        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
+
+        let newExpiry;
+        if (mode === 'set') {
+            newExpiry = new Date(Date.now() + d * 24 * 60 * 60 * 1000);
+        } else {
+            const base = dep.expires_at && new Date(dep.expires_at).getTime() > Date.now()
+                ? new Date(dep.expires_at) : new Date();
+            newExpiry = new Date(base.getTime() + d * 24 * 60 * 60 * 1000);
+        }
+
+        db.updateExpiresAt(name, newExpiry.toISOString());
+        res.json({ success: true, new_expires_at: newExpiry.toISOString() });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
  * POST /api/admin/deployments/:name/:action
  * Aksi container: start | stop | restart | rebuild | delete
  */
@@ -358,36 +388,6 @@ router.get('/api/admin/deployments/:name/logs', requireAuth, adminLimiter, async
         const lines = parseInt(req.query.lines) || 50;
         const logs = await dockerEngine.getLogs(name, Math.min(lines, 200));
         res.json({ success: true, logs });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-/**
- * POST /api/admin/deployments/:name/timer { days, mode }
- * Set/Add expiry. mode: 'add' (tambah dari expired) | 'set' (dari sekarang).
- */
-router.post('/api/admin/deployments/:name/timer', requireAuth, adminLimiter, (req, res) => {
-    try {
-        const name = String(req.params.name || '');
-        const { days, mode } = req.body || {};
-        const d = parseInt(days);
-        if (!d || d < 1 || d > 9999) return res.status(400).json({ success: false, error: 'Hari harus 1-9999' });
-
-        const dep = db.getDeploymentByContainer(name);
-        if (!dep) return res.status(404).json({ success: false, error: 'Deployment tidak ditemukan' });
-
-        let newExpiry;
-        if (mode === 'set') {
-            newExpiry = new Date(Date.now() + d * 24 * 60 * 60 * 1000);
-        } else {
-            const base = dep.expires_at && new Date(dep.expires_at).getTime() > Date.now()
-                ? new Date(dep.expires_at) : new Date();
-            newExpiry = new Date(base.getTime() + d * 24 * 60 * 60 * 1000);
-        }
-
-        db.updateExpiresAt(name, newExpiry.toISOString());
-        res.json({ success: true, new_expires_at: newExpiry.toISOString() });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

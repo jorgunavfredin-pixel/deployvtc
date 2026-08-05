@@ -451,7 +451,19 @@ const importUpload = multer({
     }
 });
 
-router.post('/api/admin/deployments/import', requireAuth, importUpload.single('file'), async (req, res) => {
+router.post('/api/admin/deployments/import', requireAuth, (req, res) => {
+    importUpload.single('file')(req, res, (err) => {
+        if (err) {
+            // Multer error (fileFilter / limit) → return JSON, bukan HTML default
+            if (req.file) { try { fs.unlinkSync(req.file.path); } catch (_) { } }
+            const msg = err.code === 'LIMIT_FILE_SIZE' ? 'File terlalu besar (maks 200MB)' : (err.message || 'Upload file gagal');
+            return res.status(400).json({ success: false, error: msg });
+        }
+        handleImport(req, res);
+    });
+});
+
+async function handleImport(req, res) {
     try {
         const MAX_CONTAINERS = parseInt(process.env.MAX_CONTAINERS) || 8;
         const running = db.getRunningCount();
@@ -494,7 +506,7 @@ router.post('/api/admin/deployments/import', requireAuth, importUpload.single('f
         if (req.file) { try { fs.unlinkSync(req.file.path); } catch (_) { } }
         res.status(500).json({ success: false, error: e.message });
     }
-});
+}
 
 /**
  * POST /api/admin/backup-all

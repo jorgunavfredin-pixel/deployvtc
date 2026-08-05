@@ -76,9 +76,10 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
     try {
         const {
             license_key, bot_token, admin_id,
-            store_name, support_username,
-            order_prefix, support_hours, theme_preset,
+            store_name,
+            order_prefix, theme_preset,
             admin_panel_password, rent_bot_enabled,
+            support_telegram_url, support_whatsapp_url, support_channel_url, support_group_url,
             // PaKasir
             pakasir_api_key, pakasir_slug,
             // WijayaPay
@@ -87,7 +88,9 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             xoftware_api_key, xoftware_merchant_id, xoftware_webhook_secret,
             xoftware_notify_url, xoftware_fee_direction,
             // KlikQRIS
-            klikqris_api_key, klikqris_merchant_id
+            klikqris_api_key, klikqris_merchant_id,
+            // Binance Pay
+            binance_api_key, binance_api_secret, binance_qr_string, binance_currency
         } = req.body;
 
         // Validate license
@@ -104,8 +107,12 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
         }
 
         // Validate required fields
-        if (!bot_token || !admin_id || !store_name || !support_username) {
-            return res.status(400).json({ success: false, error: 'Field wajib (bot token, admin id, nama toko, support username) harus diisi.' });
+        if (!bot_token || !admin_id || !store_name) {
+            return res.status(400).json({ success: false, error: 'Field wajib (bot token, admin id, nama toko) harus diisi.' });
+        }
+        // Minimal 1 support URL wajib
+        if (!support_telegram_url && !support_whatsapp_url && !support_channel_url && !support_group_url) {
+            return res.status(400).json({ success: false, error: 'Minimal 1 Support URL wajib diisi (Telegram/WhatsApp/Channel/Group).' });
         }
         // Admin Panel Password hanya wajib untuk tier 'full'
         if (tier === 'full' && !admin_panel_password) {

@@ -240,6 +240,10 @@ export default function AdminPanel({ onLogout }) {
             const fd = new FormData()
             fd.append('file', importFile)
             const res = await fetch('/api/admin/deployments/import', { method: 'POST', body: fd, credentials: 'include' })
+            const ct = res.headers.get('content-type') || ''
+            if (!ct.includes('application/json')) {
+                throw new Error(`Server error (${res.status}). Coba file .tar.gz yang valid.`)
+            }
             const data = await res.json()
             if (!data.success) throw new Error(data.error || 'Import gagal')
             notify(`Import berhasil: ${data.container.store_name}`)

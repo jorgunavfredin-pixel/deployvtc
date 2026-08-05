@@ -712,4 +712,29 @@ router.get('/api/admin/audit', requireAuth, adminLimiter, (req, res) => {
     res.json({ success: true, audit: auditLog });
 });
 
+/**
+ * GET /api/admin/system-logs?type=&limit=&offset=
+ * Get system logs (expiry, backup) for monitoring
+ */
+router.get('/api/admin/system-logs', requireAuth, (req, res) => {
+    try {
+        const type = req.query.type || null;
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+        const offset = parseInt(req.query.offset) || 0;
+
+        const logs = db.getSystemLogs(type, limit, offset);
+        const total = db.getSystemLogsCount(type);
+
+        // Parse details JSON
+        const parsed = logs.map(log => ({
+            ...log,
+            details: log.details ? JSON.parse(log.details) : null
+        }));
+
+        res.json({ success: true, logs: parsed, total, limit, offset });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 module.exports = router;

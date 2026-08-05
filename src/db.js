@@ -53,6 +53,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_dep_port ON deployments(port);
   CREATE INDEX IF NOT EXISTS idx_renewal_license ON renewals(license_key);
   CREATE INDEX IF NOT EXISTS idx_renewal_order ON renewals(order_id);
+
+  CREATE TABLE IF NOT EXISTS system_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    details TEXT,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_logs_type ON system_logs(type);
+  CREATE INDEX IF NOT EXISTS idx_logs_created ON system_logs(created_at);
 `);
 
 // Migration: tambah kolom tier ke licenses (Fase 1 — full/chat)
@@ -281,6 +292,30 @@ const createImportedDeployment = (data) => {
     return { id: result.lastInsertRowid, ...data, status: 'running', created_at, expires_at };
 };
 
+// ==================== SYSTEM LOGS ====================
+
+const addSystemLog = (type, message, details = null) => {
+    const created_at = new Date().toISOString();
+    return db.prepare('INSERT INTO system_logs (type, message, details, created_at) VALUES (?, ?, ?, ?)')
+        .run(type, message, details ? JSON.stringify(details) : null, created_at);
+};
+
+const getSystemLogs = (type = null, limit = 100, offset = 0) => {
+    if (type) {
+        return db.prepare('SELECT * FROM system_logs WHERE type = ? ORDER BY created_at DESC LIMIT ? OFFSET ?')
+            .all(type, limit, offset);
+    }
+    return db.prepare('SELECT * FROM system_logs ORDER BY created_at DESC LIMIT ? OFFSET ?')
+        .all(limit, offset);
+};
+
+const getSystemLogsCount = (type = null) => {
+    if (type) {
+        return db.prepare('SELECT COUNT(*) as count FROM system_logs WHERE type = ?').get(type).count;
+    }
+    return db.prepare('SELECT COUNT(*) as count FROM system_logs').get().count;
+};
+
 module.exports = {
     generateLicenseKey,
     createLicense,
@@ -311,5 +346,8 @@ module.exports = {
     getAllRenewals,
     getPaidRenewalTotal,
     markRenewalPaid,
-    extendDeploymentExpiry
+    extendDeploymentExpiry,
+    addSystemLog,
+    getSystemLogs,
+    getSystemLogsCount
 };

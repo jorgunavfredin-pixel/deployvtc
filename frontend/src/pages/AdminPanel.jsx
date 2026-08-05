@@ -5,13 +5,23 @@ import {
     Play, Square, RotateCw, Hammer, Trash2, Clock, ExternalLink,
     Server, Wallet, HardDrive, Loader2, Download, Upload, Database,
     Settings2, ScrollText, Search, ShieldCheck, X, CheckCircle2, AlertTriangle,
-    Store, Save, Copy
+    Store, Save, Copy, AlertCircle
 } from 'lucide-react'
 import { LogoIcon } from '../components/Logo'
 
 const fmtRp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
 const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('id-ID') : '-'
 const fmtTime = (iso) => iso ? new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'
+
+const formatUptime = (minutes) => {
+    if (!minutes || minutes < 1) return '0m'
+    const d = Math.floor(minutes / 1440)
+    const h = Math.floor((minutes % 1440) / 60)
+    const m = Math.floor(minutes % 60)
+    if (d > 0) return `${d}d ${h}h`
+    if (h > 0) return `${h}h ${m}m`
+    return `${m}m`
+}
 
 const PROVIDERS = [
     { value: 'pakasir', label: 'PaKasir', fields: [{ key: 'api_key', label: 'API Key', type: 'password' }, { key: 'slug', label: 'Project Slug', type: 'text' }] },
@@ -49,6 +59,7 @@ export default function AdminPanel({ onLogout }) {
     const [licenses, setLicenses] = useState([])
     const [deployments, setDeployments] = useState([])
     const [audit, setAudit] = useState([])
+    const [systemLogs, setSystemLogs] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [busy, setBusy] = useState('')
@@ -115,13 +126,17 @@ export default function AdminPanel({ onLogout }) {
         try { setAudit((await api('/api/admin/audit')).audit) } catch (e) { /* silent */ }
     }, [])
 
+    const loadSystemLogs = useCallback(async () => {
+        try { setSystemLogs((await api('/api/admin/system-logs?limit=100')).logs) } catch (e) { /* silent */ }
+    }, [])
+
     useEffect(() => {
         (async () => {
             setLoading(true)
-            await Promise.all([loadDashboard(), loadLicenses(), loadDeployments(), loadAudit()])
+            await Promise.all([loadDashboard(), loadLicenses(), loadDeployments(), loadAudit(), loadSystemLogs()])
             setLoading(false)
         })()
-    }, [loadDashboard, loadLicenses, loadDeployments, loadAudit])
+    }, [loadDashboard, loadLicenses, loadDeployments, loadAudit, loadSystemLogs])
 
     // Auto-refresh setiap 30 detik kalau aktif
     useEffect(() => {
@@ -295,6 +310,9 @@ export default function AdminPanel({ onLogout }) {
                     <button className={`admin-nav-item ${tab === 'audit' ? 'active' : ''}`} onClick={() => switchTab('audit')}>
                         <ScrollText size={18} /> <span>Audit Log</span>
                     </button>
+                    <button className={`admin-nav-item ${tab === 'system-logs' ? 'active' : ''}`} onClick={() => switchTab('system-logs')}>
+                        <AlertCircle size={18} /> <span>System Logs</span>
+                    </button>
                 </nav>
 
                 <main className="admin-content">
@@ -323,6 +341,7 @@ export default function AdminPanel({ onLogout }) {
                                 />
                             )}
                             {tab === 'audit' && <AuditView audit={audit} />}
+                            {tab === 'system-logs' && <SystemLogsView logs={systemLogs} onRefresh={loadSystemLogs} />}
                         </motion.div>
                     </AnimatePresence>
                 </main>
@@ -670,7 +689,7 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                                     <td data-label="Container" className="admin-mono" style={{ fontSize: '0.75rem' }}>{d.container_name}</td>
                                     <td data-label="Port" className="admin-mono">:{d.port}</td>
                                     <td data-label="Status"><StatusBadge running={cs.running} status={cs.status || d.status} /></td>
-                                    <td data-label="Uptime">{cs.uptime ? `${Math.floor(cs.uptime / 60)}m` : '-'}</td>
+                                    <td data-label="Uptime">{cs.running ? formatUptime(cs.uptime) : '-'}</td>
                                     <td data-label="Expired">{fmtDate(d.expires_at)}</td>
                                     <td data-label="Aksi">
                                         <div className="admin-actions-grid">
@@ -1121,6 +1140,98 @@ function AuditView({ audit }) {
                                 <span className={`badge badge-blue`}>{ACTION_LABELS[a.action] || a.action}</span>
                                 <span className="audit-detail">{a.detail}</span>
                                 <span className="audit-time">{fmtTime(a.at)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+function SystemLogsView({ logs, onRefresh }) {
+    const [filter, setFilter] = useState('all')
+    
+    const filtered = filter === 'all' ? logs : logs.filter(l => l.type === filter)
+    
+    const renderDetails = (log) => {
+        if (!log.details) return null
+        const d = log.details
+        
+        if (log.type === 'expiry') {
+            return (
+                <div className="log-details">
+                    <span>Stopped: {d.stopped || 0} ✅</span>
+                    <span>Failed: {d.failed || 0} ❌</span>
+                    {d.details && d.details.length > 0 && (
+                        <div className="log-list">
+                            {d.details.map((item, i) => <div key={i}>{item}</div>)}
+                        </div>
+                    )}
+                </div>
+            )
+        }
+        
+        if (log.type === 'backup') {
+            return (
+                <div className="log-details">
+                    <span>📅 {d.date}</span>
+                    <span>Total: {d.total}</span>
+                    <span>Success: {d.success} ✅</span>
+                    <span>Failed: {d.failed} ❌</span>
+                    <span style={{fontSize: '0.85em', color: '#888'}}>☁️ {d.remote_path}</span>
+                    {d.details && d.details.length > 0 && (
+                        <div className="log-list">
+                            {d.details.map((item, i) => <div key={i}>{item}</div>)}
+                        </div>
+                    )}
+                </div>
+            )
+        }
+        
+        return <pre style={{fontSize: '0.85em', color: '#888'}}>{JSON.stringify(d, null, 2)}</pre>
+    }
+    
+    return (
+        <div>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                <h2 className="admin-title">System Logs</h2>
+                <button className="btn btn-outline btn-sm" onClick={onRefresh} title="Refresh logs">
+                    <RotateCw size={14} /> Refresh
+                </button>
+            </div>
+            
+            <div className="admin-card" style={{marginBottom: '1rem'}}>
+                <div style={{display: 'flex', gap: '0.5rem'}}>
+                    <button className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFilter('all')}>
+                        All ({logs.length})
+                    </button>
+                    <button className={`btn btn-sm ${filter === 'expiry' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFilter('expiry')}>
+                        ⏰ Expiry ({logs.filter(l => l.type === 'expiry').length})
+                    </button>
+                    <button className={`btn btn-sm ${filter === 'backup' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFilter('backup')}>
+                        💾 Backup ({logs.filter(l => l.type === 'backup').length})
+                    </button>
+                </div>
+            </div>
+
+            <div className="admin-card">
+                {filtered.length === 0 ? (
+                    <p className="admin-empty">No logs yet.</p>
+                ) : (
+                    <div className="audit-list">
+                        {filtered.map(log => (
+                            <div className="audit-item" key={log.id} style={{display: 'block'}}>
+                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
+                                    <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
+                                        <span className={`badge ${log.type === 'expiry' ? 'badge-yellow' : 'badge-blue'}`}>
+                                            {log.type === 'expiry' ? '⏰ Expiry' : '💾 Backup'}
+                                        </span>
+                                        <span style={{fontWeight: 500}}>{log.message}</span>
+                                    </div>
+                                    <span className="audit-time">{fmtTime(log.created_at)}</span>
+                                </div>
+                                {renderDetails(log)}
                             </div>
                         ))}
                     </div>

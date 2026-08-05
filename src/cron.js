@@ -26,32 +26,29 @@ const checkExpiredDeployments = async () => {
     const expired = db.getExpiredDeployments();
     if (expired.length === 0) return;
 
+    const results = [];
     for (const dep of expired) {
         try {
             await dockerEngine.stopBot(dep.container_name);
             db.updateDeploymentStatus(dep.container_name, 'expired');
 
-            // Notify admin
-            if (botRef && adminIds.length > 0) {
-                const msg = `⏰ *Container Expired*\n\n` +
-                    `🏪 Store: ${escMd(dep.store_name)}\n` +
-                    `👤 Buyer: ${escMd(dep.buyer_name || '-')}\n` +
-                    `📦 Container: \`${dep.container_name}\`\n` +
-                    `📅 Expired: ${dep.expires_at?.slice(0, 10)}\n\n` +
-                    `Container telah di-stop otomatis.`;
-
-                for (const adminId of adminIds) {
-                    try {
-                        await botRef.telegram.sendMessage(adminId, msg, { parse_mode: 'Markdown' });
-                    } catch (e) { }
-                }
-            }
-
+            const logMsg = `Container expired: ${dep.store_name || dep.container_name} (${dep.buyer_name || '-'})`;
+            results.push(`✅ ${logMsg}`);
+            
             console.log(`[CRON] Stopped expired container: ${dep.container_name}`);
         } catch (error) {
-            console.error(`[CRON] Failed to stop ${dep.container_name}:`, error.message);
+            const errMsg = `Failed to stop ${dep.container_name}: ${error.message}`;
+            results.push(`❌ ${errMsg}`);
+            console.error(`[CRON] ${errMsg}`);
         }
     }
+
+    // Write to system logs (persistent)
+    db.addSystemLog('expiry', `Checked ${expired.length} expired containers`, {
+        stopped: results.filter(r => r.startsWith('✅')).length,
+        failed: results.filter(r => r.startsWith('❌')).length,
+        details: results
+    });
 };
 
 // ==================== AUTO BACKUP CRON ====================
@@ -138,23 +135,15 @@ const runAutoBackup = async () => {
 
     console.log(`[BACKUP] Complete: ${success} success, ${failed} failed`);
 
-    // Notify admin via Telegram
-    if (botRef && adminIds.length > 0) {
-        const now = new Date();
-        const timeStr = now.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
-        const msg = `💾 *Auto Backup Complete*\n\n` +
-            `📅 ${today}\n` +
-            `🕐 ${timeStr}\n` +
-            `☁️ Google Drive: \`Bot-Backups/${VPS_IP}/${today}/\`\n\n` +
-            `📊 *Result:* ${success} ✅  ${failed} ❌\n\n` +
-            results.map(r => escMd(r)).join('\n');
-
-        for (const adminId of adminIds) {
-            try {
-                await botRef.telegram.sendMessage(adminId, msg, { parse_mode: 'Markdown' });
-            } catch (e) { }
-        }
-    }
+    // Write to system logs (persistent)
+    db.addSystemLog('backup', `Auto backup complete: ${success} ✅ ${failed} ❌`, {
+        date: today,
+        remote_path: remotePath,
+        total: deployments.length,
+        success,
+        failed,
+        details: results
+    });
 };
 
 module.exports = { startExpiryCron, checkExpiredDeployments, startAutoBackupCron, runAutoBackup };

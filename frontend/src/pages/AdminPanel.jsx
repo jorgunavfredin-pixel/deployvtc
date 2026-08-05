@@ -86,7 +86,8 @@ export default function AdminPanel({ onLogout }) {
     const api = async (url, opts = {}) => {
         const res = await fetch(url, {
             ...opts,
-            headers: { 'Content-Type': 'application/json' }
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...opts.headers }
         })
         const data = await res.json()
         if (!data.success) throw new Error(data.error || 'Gagal')

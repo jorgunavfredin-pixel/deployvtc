@@ -682,6 +682,7 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                                             <a className="act-btn btn-outline" href={`/api/admin/deployments/${d.container_name}/export`} target="_blank" rel="noreferrer" title="Export container (.tar.gz)"><Download size={14} /><span>Export</span></a>
                                             <a className="act-btn btn-outline" href={`/api/admin/deployments/${d.container_name}/backup`} target="_blank" rel="noreferrer" title="Backup database (store.db)"><Database size={14} /><span>Backup</span></a>
                                             <button className="act-btn btn-danger" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')} title="Rebuild container dari image terbaru"><Hammer size={14} /><span>Rebuild</span></button>
+                                            <button className="act-btn btn-danger" disabled={busy === `delete-${d.container_name}`} onClick={() => onAction(d.container_name, 'delete')} title="Hapus container permanen"><Trash2 size={14} /><span>Delete</span></button>
                                         </div>
                                     </td>
                                 </tr>

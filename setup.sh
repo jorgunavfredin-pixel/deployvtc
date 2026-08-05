@@ -90,18 +90,14 @@ if [ "${INSTALL_RCLONE,,}" = "y" ] && command -v rclone &> /dev/null; then
         echo ""
         echo -e "${CYAN}Paste token rclone dari VPS lama:${NC}"
         echo "  (jalankan di VPS lama: cat /root/.config/rclone/rclone.conf)"
-        echo "  Paste isi token JSON, atau tekan Enter untuk skip"
-        read -p "> " RCLONE_TOKEN
+        echo "  Paste isi file (multi-line OK), lalu tekan Ctrl+D untuk selesai"
+        echo "  Atau tekan Ctrl+D langsung untuk skip"
+        echo ""
+        RCLONE_TOKEN=$(cat)
 
         if [ -n "$RCLONE_TOKEN" ]; then
             mkdir -p /root/.config/rclone
-            cat > /root/.config/rclone/rclone.conf << REOF
-[gdrive]
-type = drive
-scope = drive
-token = ${RCLONE_TOKEN}
-team_drive =
-REOF
+            echo "$RCLONE_TOKEN" > /root/.config/rclone/rclone.conf
             echo -e "${GREEN}Rclone config created!${NC}"
             echo "Testing Google Drive connection..."
             if rclone lsd gdrive: --max-depth 1 2>/dev/null; then
@@ -129,45 +125,32 @@ if [ -d "/root/vitaicmin" ] || [ -d "/root/deployvtc" ]; then
     fi
 fi
 
-# Clone if not exists
-if [ ! -d "/root/vitaicmin" ] || [ ! -d "/root/deployvtc" ]; then
-    # Coba clone public dulu (tanpa token). Kalau repo sudah private, git akan
-    # gagal → baru minta PAT token.
-    echo ""
-    echo "Mencoba clone public (tanpa token)..."
-    if [ ! -d "/root/vitaicmin" ]; then
-        git clone https://github.com/jorgunavfredin-pixel/vitaicmin.git && echo -e "${GREEN}✓ vitaicmin cloned${NC}" || echo -e "${RED}✗ gagal (kemungkinan repo private)${NC}"
-    fi
-    if [ ! -d "/root/deployvtc" ]; then
-        git clone https://github.com/jorgunavfredin-pixel/deployvtc.git && echo -e "${GREEN}✓ deployvtc cloned${NC}" || echo -e "${RED}✗ gagal (kemungkinan repo private)${NC}"
-    fi
+# Clone from public repo if not exists
+if [ ! -d "/root/vitaicmin" ]; then
+    echo "Cloning vitaicmin from GitHub..."
+    git clone https://github.com/jorgunavfredin-pixel/vitaicmin.git && echo -e "${GREEN}✓ vitaicmin cloned${NC}" || echo -e "${RED}✗ Clone failed. Manual: git clone <repo-url>${NC}"
+fi
 
-    # Kalau masih ada yang belum ter-clone, minta PAT token
-    if [ ! -d "/root/vitaicmin" ] || [ ! -d "/root/deployvtc" ]; then
-        echo ""
-        echo "GitHub PAT token (untuk clone private repo):"
-        echo "  PAT = string acak (contoh: ghp_abc123...). BUKAN URL repo."
-        echo "  Ketik 'skip' untuk melewati dan lanjut manual."
-        read -p "> " GH_TOKEN
-        if [ "${GH_TOKEN,,}" = "skip" ] || [ -z "$GH_TOKEN" ]; then
-            echo -e "${YELLOW}Clone dilewati. Lanjut ke langkah berikutnya.${NC}"
-        else
-            # Validasi: PAT tidak boleh mengandung karakter URL
-            case "$GH_TOKEN" in
-                *"http"*|*"@"*|*"/"*) echo -e "${RED}Input tidak valid: itu bukan PAT token. Dilewati.${NC}" ;;
-                *)
-                    [ ! -d "/root/vitaicmin" ] && git clone "https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/vitaicmin.git"
-                    [ ! -d "/root/deployvtc" ] && git clone "https://jorgunavfredin-pixel:${GH_TOKEN}@github.com/jorgunavfredin-pixel/deployvtc.git"
-                    ;;
-            esac
-        fi
-    fi
+if [ ! -d "/root/deployvtc" ]; then
+    echo "Cloning deployvtc from GitHub..."
+    git clone https://github.com/jorgunavfredin-pixel/deployvtc.git && echo -e "${GREEN}✓ deployvtc cloned${NC}" || echo -e "${RED}✗ Clone failed. Manual: git clone <repo-url>${NC}"
 fi
 
 # ==================== STEP 6: Build Docker Image ====================
 echo -e "${YELLOW}[6/8] Building store-bot Docker image...${NC}"
 cd /root/vitaicmin
-docker build -t store-bot .
+
+if [ ! -f "Dockerfile" ]; then
+    echo -e "${RED}Dockerfile not found in /root/vitaicmin${NC}"
+    echo "Manual: check repo or create Dockerfile"
+    exit 1
+fi
+
+if ! docker build -t store-bot .; then
+    echo -e "${RED}Docker build failed. Check logs above.${NC}"
+    exit 1
+fi
+
 echo -e "${GREEN}Docker image 'store-bot' built!${NC}"
 
 # ==================== STEP 7: Setup Deploy ====================
@@ -217,10 +200,15 @@ if [ "$CREATE_ENV" = true ]; then
     read -p "> " MAX_C
     MAX_C=${MAX_C:-8}
 
-    # Admin Panel Password (opsional — kosong = auto-generate)
+    # Admin Panel Password (wajib — kalau kosong, auto-generate)
     echo ""
-    echo "Password admin panel deploy (default: auto-generate):"
+    echo "Password admin panel deploy (Enter = auto-generate):"
     read -p "> " ADMIN_PASS
+    if [ -z "$ADMIN_PASS" ]; then
+        ADMIN_PASS=$(openssl rand -base64 16 | tr -d '/+=' | head -c 16)
+        echo -e "${GREEN}Auto-generated password: ${ADMIN_PASS}${NC}"
+        echo -e "${YELLOW}⚠️ Simpan password ini! Tidak bisa dilihat lagi setelah setup.${NC}"
+    fi
 
     cat > .env << EOF
 # Vitacimin Deploy Platform
@@ -282,7 +270,11 @@ NEOF
     rm -f /etc/nginx/sites-enabled/default
 
     # Test & reload nginx
-    nginx -t && systemctl reload nginx
+    if ! nginx -t; then
+        echo -e "${RED}Nginx config invalid. Fix manual lalu: systemctl reload nginx${NC}"
+        exit 1
+    fi
+    systemctl reload nginx
     echo -e "${GREEN}Nginx configured for ${DOMAIN}${NC}"
 
     # SSL
@@ -310,7 +302,15 @@ echo -e "${YELLOW}Starting deployvtc...${NC}"
 pm2 delete deployvtc 2>/dev/null || true
 pm2 start src/index.js --name deployvtc
 pm2 save
-pm2 startup systemd -u root --hp /root 2>/dev/null || true
+
+# Setup PM2 startup (with warning if fails)
+if pm2 startup systemd -u root --hp /root 2>&1 | grep -q "already"; then
+    echo -e "${GREEN}PM2 startup already configured${NC}"
+else
+    if ! pm2 startup systemd -u root --hp /root; then
+        echo -e "${YELLOW}⚠️ PM2 startup may have failed. Check: systemctl status pm2-root${NC}"
+    fi
+fi
 
 # Read values for summary
 VPS_IP_FINAL=$(grep "^VPS_IP=" .env | cut -d= -f2)

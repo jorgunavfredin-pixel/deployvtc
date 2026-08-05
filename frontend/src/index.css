@@ -3282,9 +3282,9 @@ h3 {
 /* ==================== REVISI: AKSI DEPLOYMENT GRID 3x3 ==================== */
 .admin-actions-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
   gap: 0.4rem;
-  min-width: 240px;
+  min-width: 320px;
 }
 
 .act-btn {

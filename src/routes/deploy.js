@@ -134,9 +134,11 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             WEBHOOK_URL: `http://${VPS_IP}:${port}`,
             TZ: 'Asia/Jakarta',
             STORE_NAME: (store_name || 'Store').trim(),
-            SUPPORT_USERNAME: (support_username || '').trim(),
             ORDER_PREFIX: (order_prefix || 'ORD').trim(),
-            SUPPORT_HOURS: (support_hours || '09:00 - 23:00 WIB').trim(),
+            SUPPORT_TELEGRAM_URL: (support_telegram_url || '').trim(),
+            SUPPORT_WHATSAPP_URL: (support_whatsapp_url || '').trim(),
+            SUPPORT_CHANNEL_URL: (support_channel_url || '').trim(),
+            SUPPORT_GROUP_URL: (support_group_url || '').trim(),
             THEME_PRESET: (theme_preset || 'gold').toLowerCase(),
             RENT_BOT_ENABLED: rentBotEnabled ? 'true' : 'false',
             // Admin panel: hanya di-set untuk tier 'full'. Tier 'chat' tanpa
@@ -158,7 +160,12 @@ router.post('/api/deploy', deployLimiter, upload.single('banner'), async (req, r
             XOWFTWARE_FEE_DIRECTION: (xoftware_fee_direction === 'user' ? 'user' : 'merchant'),
             // KlikQRIS
             KLIKQRIS_API_KEY: (klikqris_api_key || '').trim(),
-            KLIKQRIS_MERCHANT_ID: (klikqris_merchant_id || '').trim()
+            KLIKQRIS_MERCHANT_ID: (klikqris_merchant_id || '').trim(),
+            // Binance Pay
+            BINANCE_API_KEY: (binance_api_key || '').trim(),
+            BINANCE_API_SECRET: (binance_api_secret || '').trim(),
+            BINANCE_QR_STRING: (binance_qr_string || '').trim(),
+            BINANCE_CURRENCY: (binance_currency || 'USDT').trim()
         };
 
         // Deploy container

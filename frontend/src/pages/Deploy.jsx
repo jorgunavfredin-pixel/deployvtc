@@ -127,8 +127,8 @@ function FieldSection({ icon, title, desc, children }) {
 function ConfigStep({ licenseKey, tier, onDeploy }) {
     const [form, setForm] = useState({
         botToken: '', adminId: '', storeName: '', orderPrefix: 'ORD',
-        adminPanelPassword: '', supportUsername: '',
-        supportHours: '09:00 - 23:00 WIB', themePreset: '', rentBotEnabled: false,
+        adminPanelPassword: '', supportTelegramUrl: '', supportWhatsappUrl: '',
+        supportChannelUrl: '', supportGroupUrl: '', themePreset: '', rentBotEnabled: false,
         // PaKasir
         pakasirApiKey: '', pakasirSlug: '',
         // WijayaPay
@@ -137,7 +137,9 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
         xoftwareApiKey: '', xoftwareMerchantId: '', xoftwareWebhookSecret: '',
         xoftwareNotifyUrl: '', xoftwareFeeDirection: 'merchant',
         // KlikQRIS
-        klikqrisApiKey: '', klikqrisMerchantId: ''
+        klikqrisApiKey: '', klikqrisMerchantId: '',
+        // Binance Pay
+        binanceApiKey: '', binanceApiSecret: '', binanceQrString: '', binanceCurrency: 'USDT'
     })
     const [banner, setBanner] = useState(null)
     const [noBanner, setNoBanner] = useState(false)
@@ -176,14 +178,19 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             wijayapayCodeMerchant: '', wijayapayApiKey: '',
             xoftwareApiKey: '', xoftwareMerchantId: '', xoftwareWebhookSecret: '',
             xoftwareNotifyUrl: '', xoftwareFeeDirection: 'merchant',
-            klikqrisApiKey: '', klikqrisMerchantId: ''
+            klikqrisApiKey: '', klikqrisMerchantId: '',
+            binanceApiKey: '', binanceApiSecret: '', binanceQrString: '', binanceCurrency: 'USDT'
         }))
     }
 
     const deploy = async () => {
-        const { botToken, adminId, storeName, adminPanelPassword, supportUsername } = form
-        if (!botToken || !adminId || !storeName || !supportUsername) {
-            return setError('Field wajib (bot token, admin id, nama toko, support username) harus diisi.')
+        const { botToken, adminId, storeName, adminPanelPassword, supportTelegramUrl, supportWhatsappUrl, supportChannelUrl, supportGroupUrl } = form
+        
+        // Validasi minimal 1 support URL wajib diisi
+        const hasSupportUrl = supportTelegramUrl || supportWhatsappUrl || supportChannelUrl || supportGroupUrl
+        
+        if (!botToken || !adminId || !storeName || !hasSupportUrl) {
+            return setError('Field wajib (bot token, admin id, nama toko, minimal 1 support URL) harus diisi.')
         }
         if (tier === 'full' && !adminPanelPassword) {
             return setError('License dengan akses Web Admin memerlukan Admin Panel Password.')
@@ -193,7 +200,8 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             (provider === 'pakasir' && form.pakasirApiKey && form.pakasirSlug) ||
             (provider === 'wijayapay' && form.wijayapayCodeMerchant && form.wijayapayApiKey) ||
             (provider === 'xoftware' && form.xoftwareApiKey && form.xoftwareMerchantId && form.xoftwareWebhookSecret) ||
-            (provider === 'klikqris' && form.klikqrisApiKey && form.klikqrisMerchantId)
+            (provider === 'klikqris' && form.klikqrisApiKey && form.klikqrisMerchantId) ||
+            (provider === 'binance' && form.binanceApiKey && form.binanceApiSecret && form.binanceQrString)
         if (!hasGateway) return setError('Lengkapi credential payment gateway yang dipilih.')
         if (!banner && !noBanner) return setError('Upload banner toko atau centang "Tidak perlu banner".')
         if (banner && !banner.type.startsWith('image/')) return setError('File harus berupa gambar.')
@@ -227,8 +235,10 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
         fd.append('store_name', form.storeName.trim())
         fd.append('order_prefix', form.orderPrefix.trim())
         fd.append('admin_panel_password', form.adminPanelPassword.trim())
-        fd.append('support_username', form.supportUsername.trim())
-        fd.append('support_hours', form.supportHours.trim())
+        fd.append('support_telegram_url', form.supportTelegramUrl.trim())
+        fd.append('support_whatsapp_url', form.supportWhatsappUrl.trim())
+        fd.append('support_channel_url', form.supportChannelUrl.trim())
+        fd.append('support_group_url', form.supportGroupUrl.trim())
         fd.append('theme_preset', form.themePreset)
         fd.append('rent_bot_enabled', form.rentBotEnabled ? 'true' : 'false')
         // PaKasir
@@ -246,6 +256,11 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
         // KlikQRIS
         fd.append('klikqris_api_key', form.klikqrisApiKey.trim())
         fd.append('klikqris_merchant_id', form.klikqrisMerchantId.trim())
+        // Binance Pay
+        fd.append('binance_api_key', form.binanceApiKey.trim())
+        fd.append('binance_api_secret', form.binanceApiSecret.trim())
+        fd.append('binance_qr_string', form.binanceQrString.trim())
+        fd.append('binance_currency', form.binanceCurrency.trim())
         if (banner && !noBanner) fd.append('banner', banner)
         fd.append('no_banner', noBanner ? '1' : '')
 
@@ -340,6 +355,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                         <option value="wijayapay">WijayaPay</option>
                         <option value="xoftware">Xoftware Pay</option>
                         <option value="klikqris">KlikQRIS</option>
+                        <option value="binance">Binance Pay</option>
                     </select>
                 </div>
 
@@ -412,6 +428,33 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                         <input className="form-input" placeholder="cth: 123456789" value={form.klikqrisMerchantId} onChange={set('klikqrisMerchantId')} />
                     </div>
                 </div>
+            )}
+
+            {provider === 'binance' && (
+                <>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label className="form-label">Binance API Key *</label>
+                            <input className="form-input" type="password" placeholder="API key dari Binance (read-only)" value={form.binanceApiKey} onChange={set('binanceApiKey')} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Binance API Secret *</label>
+                            <input className="form-input" type="password" placeholder="API secret dari Binance" value={form.binanceApiSecret} onChange={set('binanceApiSecret')} />
+                        </div>
+                    </div>
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label className="form-label">Binance QR URL *</label>
+                            <input className="form-input" placeholder="https://app.binance.com/uni-qr/..." value={form.binanceQrString} onChange={set('binanceQrString')} />
+                            <span className="form-hint">URL QR statis dari Binance Pay</span>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Currency</label>
+                            <input className="form-input" placeholder="USDT" value={form.binanceCurrency} onChange={set('binanceCurrency')} />
+                            <span className="form-hint">Default: USDT</span>
+                        </div>
+                    </div>
+                </>
             )}
 
             </FieldSection>
@@ -504,16 +547,29 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </label>
             </FieldSection>
 
-            <FieldSection icon="🛟" title="Support" desc="Info kontak bantuan untuk buyer">
+            <FieldSection icon="🛟" title="Support" desc="Link kontak bantuan untuk buyer (minimal 1 wajib)">
                 <div className="form-row">
                     <div className="form-group">
-                        <label className="form-label">Support Username *</label>
-                        <input className="form-input" placeholder="username_telegram" value={form.supportUsername} onChange={set('supportUsername')} />
-                        <span className="form-hint">Tanpa "@"</span>
+                        <label className="form-label">Support Telegram URL</label>
+                        <input className="form-input" placeholder="https://t.me/username" value={form.supportTelegramUrl} onChange={set('supportTelegramUrl')} />
+                        <span className="form-hint">Link ke akun Telegram atau grup support</span>
                     </div>
                     <div className="form-group">
-                        <label className="form-label">Support Hours *</label>
-                        <input className="form-input" placeholder="09:00 - 23:00 WIB" value={form.supportHours} onChange={set('supportHours')} />
+                        <label className="form-label">Support WhatsApp URL</label>
+                        <input className="form-input" placeholder="https://wa.me/628123456789" value={form.supportWhatsappUrl} onChange={set('supportWhatsappUrl')} />
+                        <span className="form-hint">Link WhatsApp dengan format wa.me</span>
+                    </div>
+                </div>
+                <div className="form-row">
+                    <div className="form-group">
+                        <label className="form-label">Channel URL (opsional)</label>
+                        <input className="form-input" placeholder="https://t.me/channelname" value={form.supportChannelUrl} onChange={set('supportChannelUrl')} />
+                        <span className="form-hint">Link ke channel Telegram (opsional)</span>
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Group URL (opsional)</label>
+                        <input className="form-input" placeholder="https://t.me/groupname" value={form.supportGroupUrl} onChange={set('supportGroupUrl')} />
+                        <span className="form-hint">Link ke grup Telegram (opsional)</span>
                     </div>
                 </div>
             </FieldSection>

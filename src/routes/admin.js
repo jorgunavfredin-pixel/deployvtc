@@ -118,7 +118,7 @@ router.post('/api/admin/login', loginLimiter, (req, res) => {
     const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 
     res.setHeader('Set-Cookie', [
-        `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${8 * 60 * 60}; ${process.env.NODE_ENV === 'production' ? 'Secure;' : ''}`
+        `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${8 * 60 * 60}; ${process.env.NODE_ENV === 'production' ? 'Secure;' : ''}`
     ]);
     logAudit('LOGIN', 'Admin login', 'admin');
     res.json({ success: true, message: 'Login berhasil' });

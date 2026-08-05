@@ -432,7 +432,7 @@ Kalau butuh bantuan, balas chat ini ya! 🙏`} />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Jumlah Hari</label>
-                            <input className="form-input" type="number" min="1" max="9999" value={timerDays} onChange={e => setTimerDays(parseInt(e.target.value) || 0)} />
+                            <input className="form-input" type="number" min="1" max="9999" value={timerDays} onChange={e => setTimerDays(Math.max(1, parseInt(e.target.value) || 1))} />
                         </div>
                         <div className="admin-modal-actions">
                             <button className="btn btn-outline" onClick={() => setTimerDep(null)}>Batal</button>

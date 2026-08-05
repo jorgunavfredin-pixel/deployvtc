@@ -72,8 +72,7 @@ const readEnv = (containerName) => {
  */
 const ENV_TO_SETTING = {
     STORE_NAME: 'store_name',
-    SUPPORT_USERNAME: 'support_username',
-    SUPPORT_HOURS: 'support_hours',
+    SUPPORT_TELEGRAM_URL: 'support_telegram_url',
     ORDER_PREFIX: 'order_prefix',
     PAYMENT_TIMEOUT_MINUTES: 'payment_timeout_minutes'
 };
@@ -203,8 +202,7 @@ const getBotConfig = (containerName) => {
             // Bot pakai ADMIN_ID (bukan ADMIN_TELEGRAM_ID) — lihat src/index.js bot
             admin_telegram_id: env.ADMIN_ID || env.ADMIN_TELEGRAM_ID || '',
             store_name: env.STORE_NAME || '',
-            support_username: env.SUPPORT_USERNAME || '',
-            support_hours: env.SUPPORT_HOURS || '',
+            support_telegram_url: env.SUPPORT_TELEGRAM_URL || '',
             order_prefix: env.ORDER_PREFIX || '',
             admin_panel_password: env.ADMIN_PANEL_PASSWORD || '',
             theme_preset: env.THEME_PRESET || '',

@@ -739,8 +739,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
             admin_telegram_id: c.admin_telegram_id || '',
             store_name: c.store_name || '',
             order_prefix: c.order_prefix || '',
-            support_username: c.support_username || '',
-            support_hours: c.support_hours || '',
+            support_telegram_url: c.support_telegram_url || '',
             admin_panel_password: c.admin_panel_password || '',
             pakasir_api_key: c.pakasir_api_key || '',
             pakasir_slug: c.pakasir_slug || '',
@@ -802,7 +801,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
         try {
             const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/env`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ env: envFor(['STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_USERNAME', 'SUPPORT_HOURS']), restart })
+                body: JSON.stringify({ env: envFor(['STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_TELEGRAM_URL']), restart })
             })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
@@ -880,7 +879,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
         setSaving('all')
         const errors = []
         const envPatch = {
-            ...envFor(['BOT_TOKEN', 'ADMIN_TELEGRAM_ID', 'STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_USERNAME', 'SUPPORT_HOURS', 'ADMIN_PANEL_PASSWORD', 'THEME_PRESET']),
+            ...envFor(['BOT_TOKEN', 'ADMIN_TELEGRAM_ID', 'STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_TELEGRAM_URL', 'ADMIN_PANEL_PASSWORD', 'THEME_PRESET']),
             PAKASIR_API_KEY: form.pakasir_api_key || '',
             PAKASIR_SLUG: form.pakasir_slug || '',
             WIJAYAPAY_CODE_MERCHANT: form.wijayapay_code_merchant || '',
@@ -989,12 +988,8 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                                         <input className="form-input" value={form.order_prefix || ''} onChange={set('order_prefix')} />
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Support Username</label>
-                                        <input className="form-input" placeholder="tanpa @" value={form.support_username || ''} onChange={set('support_username')} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Support Hours</label>
-                                        <input className="form-input" placeholder="09:00 - 23:00 WIB" value={form.support_hours || ''} onChange={set('support_hours')} />
+                                        <label className="form-label">Support Telegram URL</label>
+                                        <input className="form-input" placeholder="https://t.me/username" value={form.support_telegram_url || ''} onChange={set('support_telegram_url')} />
                                     </div>
                                 </div>
                                 <SectionActions saving={saving === 'identitas'} onSave={() => saveIdentitas(false)} onSaveRestart={() => saveIdentitas(true)} />

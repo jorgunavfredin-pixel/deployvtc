@@ -654,7 +654,7 @@ router.post('/api/admin/deployments/:name/config/env', requireAuth, adminLimiter
         // Whitelist key yang boleh diubah
         const allowed = [
             'BOT_TOKEN', 'ADMIN_ID',
-            'STORE_NAME', 'SUPPORT_USERNAME', 'SUPPORT_HOURS', 'ORDER_PREFIX',
+            'STORE_NAME', 'SUPPORT_TELEGRAM_URL', 'ORDER_PREFIX',
             'PAYMENT_TIMEOUT_MINUTES',
             'ADMIN_PANEL_PASSWORD', 'THEME_PRESET',
             'PAKASIR_API_KEY', 'PAKASIR_SLUG',

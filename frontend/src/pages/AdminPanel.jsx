@@ -239,7 +239,7 @@ export default function AdminPanel({ onLogout }) {
         try {
             const fd = new FormData()
             fd.append('file', importFile)
-            const res = await fetch('/api/admin/deployments/import', { method: 'POST', body: fd })
+            const res = await fetch('/api/admin/deployments/import', { method: 'POST', body: fd, credentials: 'include' })
             const data = await res.json()
             if (!data.success) throw new Error(data.error || 'Import gagal')
             notify(`Import berhasil: ${data.container.store_name}`)

@@ -282,17 +282,29 @@ const getLogs = async (containerName, tail = 50) => {
  * Flushes WAL first so store.db contains ALL data
  */
 const backupDatabase = (containerName) => {
-    const dbPath = path.join(DATA_DIR, containerName, 'db', 'store.db');
+    const dataDir = path.join(DATA_DIR, containerName, 'db');
+    const dbPath = path.join(dataDir, 'store.db');
     if (!fs.existsSync(dbPath)) return null;
 
-    // Flush WAL → store.db before copying
-    try {
-        execSync(
-            `docker exec ${containerName} node -e "const db = require('better-sqlite3')('/app/src/database/store.db'); db.pragma('wal_checkpoint(TRUNCATE)'); db.close();"`,
-            { timeout: 10000 }
-        );
-    } catch (e) {
-        console.log(`[BACKUP] WAL checkpoint failed for ${containerName}, backing up anyway:`, e.message);
+    // Flush WAL → store.db before copying.
+    // Kalau checkpoint gagal, data terbaru masih ada di store.db-wal dan tidak ikut backup.
+    // Retry 2× dengan delay — kalau tetap gagal, backup dibatalkan (jangan copy file tidak lengkap).
+    let walOk = false;
+    for (let i = 1; i <= 3; i++) {
+        try {
+            execSync(
+                `docker exec ${containerName} node -e "const db = require('better-sqlite3')('/app/src/database/store.db'); db.pragma('wal_checkpoint(TRUNCATE)'); db.close();"`,
+                { timeout: 15000 }
+            );
+            walOk = true;
+            break;
+        } catch (e) {
+            console.log(`[BACKUP] WAL checkpoint attempt ${i}/3 failed for ${containerName}: ${e.message}`);
+            if (i < 3) require('timers/promises').setTimeout(2000); // delay 2s sebelum retry
+        }
+    }
+    if (!walOk) {
+        throw new Error(`WAL checkpoint failed after 3 attempts — aborting backup to prevent incomplete data`);
     }
 
     const backupDir = path.join(DATA_DIR, 'backups');

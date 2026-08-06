@@ -118,8 +118,11 @@ const runAutoBackup = async () => {
             }
 
             // Upload to Google Drive via rclone
-            execSync(`rclone copyto "${backupFile}" "${remotePath}/${dep.container_name}.db"`, {
-                timeout: 60000 // 60s timeout
+            // 60 detik cukup untuk DB < 10 MB; DB lebih besar butuh lebih lama
+            // tambah flag --timeout dan --transfers untuk network lambat
+            execSync(`rclone copyto "${backupFile}" "${remotePath}/${dep.container_name}.db" --timeout 5m --transfers 1 --low-level-retries 3`, {
+                timeout: 300000, // 5 menit
+                stdio: 'pipe'
             });
 
             // Delete local backup file

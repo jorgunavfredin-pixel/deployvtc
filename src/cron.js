@@ -5,13 +5,25 @@ const dockerEngine = require('./docker');
 
 // ==================== EXPIRY CRON ====================
 
+// Seberapa sering expiry diperiksa. 15 menit dipilih supaya selisih antara
+// waktu expiry dan saat bot benar-benar dimatikan tidak sampai sejam.
+const EXPIRY_INTERVAL_MS = 15 * 60 * 1000;
+
 /**
- * Start expiry check cron (runs every hour)
+ * Start expiry check cron.
+ *
+ * Selain interval berkala, ada satu pemeriksaan singkat setelah boot: dengan
+ * setInterval saja, panggilan pertama baru terjadi satu interval penuh setelah
+ * start, jadi bot yang expired saat panel mati akan tetap melayani pesanan
+ * sampai pemeriksaan pertama tiba. Pola ini sama dengan cron backup.
  */
 const startExpiryCron = () => {
-    // Check every hour
-    setInterval(checkExpiredDeployments, 60 * 60 * 1000);
-    console.log('⏰ Expiry cron started (checks every hour)');
+    setInterval(checkExpiredDeployments, EXPIRY_INTERVAL_MS);
+    // Susul sesaat setelah boot untuk menangkap yang terlewat saat panel mati
+    setTimeout(() => {
+        checkExpiredDeployments().catch(e => console.error('[CRON] Expiry check saat boot gagal:', e.message));
+    }, 20 * 1000);
+    console.log(`⏰ Expiry cron started (tiap ${EXPIRY_INTERVAL_MS / 60000} menit + cek saat boot)`);
 };
 
 const checkExpiredDeployments = async () => {

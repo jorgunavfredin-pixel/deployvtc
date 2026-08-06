@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const db = require('../db');
+const dockerEngine = require('../docker');
 
 const router = express.Router();
 
@@ -163,10 +164,36 @@ router.post('/api/renew/confirm', async (req, res) => {
             const dep = db.getDeploymentByLicense(renewal.license_key);
             const extended = dep ? db.extendDeploymentExpiry(dep.container_name, renewal.duration_days) : null;
             const paid = db.markRenewalPaid(orderId, new Date().toISOString());
+
+            // Perpanjangan saja tidak cukup. Kalau bot sudah dimatikan cron karena
+            // expired, buyer yang baru membayar akan mendapati botnya tetap mati dan
+            // status DB tersangkut di 'expired' — akibatnya bot itu diabaikan cron
+            // expiry berikutnya, tidak terhitung di dashboard, portnya dianggap bebas,
+            // dan dilewati backup harian. Jadi hidupkan lagi dan kembalikan statusnya.
+            let revived = null;
+            if (dep) {
+                let running = false;
+                try {
+                    const cs = await dockerEngine.getStatus(dep.container_name);
+                    running = cs?.running === true;
+                } catch (e) { /* container hilang → tangani di bawah */ }
+
+                if (!running) {
+                    const started = await dockerEngine.startBot(dep.container_name);
+                    revived = { attempted: true, success: started.success === true, error: started.error || null };
+                    if (started.success) db.updateDeploymentStatus(dep.container_name, 'running');
+                } else if (dep.status !== 'running') {
+                    // Container hidup tapi status DB tertinggal — samakan.
+                    db.updateDeploymentStatus(dep.container_name, 'running');
+                    revived = { attempted: false, success: true, error: null };
+                }
+            }
+
             return res.json({
                 success: true,
                 paid: true,
                 extended,
+                revived,
                 renewal: paid
             });
         }

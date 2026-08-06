@@ -210,27 +210,114 @@ if [ "$CREATE_ENV" = true ]; then
         echo -e "${YELLOW}⚠️ Simpan password ini! Tidak bisa dilihat lagi setelah setup.${NC}"
     fi
 
+    # ---- Opsional: semua boleh di-skip, barisnya tetap ditulis ke .env ----
+    echo ""
+    echo -e "${CYAN}Berikut opsional — tekan Enter untuk skip.${NC}"
+    echo -e "${CYAN}Baris tetap ditulis ke .env supaya bisa diisi manual nanti.${NC}"
+
+    # Bot Telegram admin deploy
+    echo ""
+    echo "Token bot Telegram admin deploy (dari @BotFather):"
+    read -p "> " DEPLOY_TOKEN
+
+    echo ""
+    echo "Telegram ID admin (dari @userinfobot, pisah koma kalau lebih dari satu):"
+    read -p "> " ADMIN_TG_ID
+
+    # KlikQRIS — dipakai fitur perpanjangan license
+    echo ""
+    echo "KlikQRIS API Key (untuk perpanjangan license buyer):"
+    read -p "> " KQ_API_KEY
+
+    echo ""
+    echo "KlikQRIS Merchant ID:"
+    read -p "> " KQ_MERCHANT_ID
+
     cat > .env << EOF
-# Vitacimin Deploy Platform
+# ==============================================
+# DEPLOYVTC — Panel Deploy Configuration
+# Dibuat otomatis oleh setup.sh
+# Baris yang kosong bisa diisi manual, lalu:
+#   pm2 restart deployvtc
+# ==============================================
+
+# ---- Wajib ----
+# IP publik VPS atau domain (dipakai membangun WEBHOOK_URL bot buyer)
 VPS_IP=${DETECTED_IP}
-BOT_TEMPLATE_IMAGE=store-bot
-DATA_DIR=/root/data
-MAX_CONTAINERS=${MAX_C}
+
+# Port panel deploy (nginx mem-proxy ke port ini)
 PORT=800
-# Perpanjangan license (Renew)
+
+# ---- Bot Telegram admin deploy ----
+# Kosong = bot admin nonaktif, panel web tetap jalan normal.
+# Token dari @BotFather, format: 123456789:AAF...
+DEPLOY_BOT_TOKEN=${DEPLOY_TOKEN}
+
+# Telegram ID admin (dari @userinfobot). Pisah koma kalau lebih dari satu.
+ADMIN_ID=${ADMIN_TG_ID}
+
+# ---- Container ----
+# Maksimum container bot yang boleh jalan bersamaan
+MAX_CONTAINERS=${MAX_C}
+
+# Template image untuk container bot (dibangun dari repo vitaicmin)
+BOT_TEMPLATE_IMAGE=store-bot
+
+# Direktori data buyer (db, assets, logs tiap bot)
+DATA_DIR=/root/data
+
+# Sumber preset twibbon QRIS. Kosongkan untuk memakai default:
+# /root/vitaicmin/assets/qris-custom/presets
+QRIS_PRESET_DIR=
+
+# ---- Perpanjangan license (Renew) ----
+# Harga per bulan (Rp). Harga per hari dihitung = harga/bulan / 30.
 RENEW_PRICE_PER_MONTH=30000
-# Auto Backup (Google Drive via rclone)
+
+# Kredensial KlikQRIS untuk pembayaran perpanjangan.
+# Kosong = fitur renew tidak bisa dipakai buyer.
+KLIKQRIS_API_KEY=${KQ_API_KEY}
+KLIKQRIS_MERCHANT_ID=${KQ_MERCHANT_ID}
+
+# ---- Auto Backup (via rclone ke Google Drive) ----
+# Nama remote rclone. Cek dengan: rclone listremotes
 RCLONE_REMOTE=gdrive
+
+# Jam backup harian, waktu WIB (0-23)
 BACKUP_HOUR=3
-# Admin Web Panel (semua opsional; kosong = auto-generate & persist)
+
+# ---- Admin Web Panel ----
+# Password login admin panel.
 ADMIN_PANEL_PASSWORD=${ADMIN_PASS}
+
+# Secret JWT. Kosong = auto-generate 64 hex acak, persist di deploy-secrets.json
 ADMIN_JWT_SECRET=
+
+# Path admin rahasia (bukan /admin — itu sengaja fake 404).
+# Kosong = random, URL lengkap tampil di log saat boot.
 ADMIN_PATH=
-# Telegram link untuk frontend (default t.me/yuriot)
+
+# ---- Lain-lain ----
+# Link Telegram yang tampil di frontend. Kosong = https://t.me/yuriot
 TELEGRAM_LINK=
 EOF
 
     echo -e "${GREEN}.env created!${NC}"
+
+    # Ringkas apa yang belum terisi supaya tidak ada fitur mati diam-diam
+    PENDING=""
+    [ -z "$DEPLOY_TOKEN" ] && PENDING="${PENDING}\n  - DEPLOY_BOT_TOKEN  → bot Telegram admin nonaktif"
+    [ -z "$ADMIN_TG_ID" ] && PENDING="${PENDING}\n  - ADMIN_ID          → bot admin tidak mengenali siapa pun"
+    if [ -z "$KQ_API_KEY" ] || [ -z "$KQ_MERCHANT_ID" ]; then
+        PENDING="${PENDING}\n  - KLIKQRIS_*        → buyer tidak bisa perpanjang license"
+    fi
+
+    if [ -n "$PENDING" ]; then
+        echo ""
+        echo -e "${YELLOW}Belum terisi di .env (isi manual kalau perlu):${NC}"
+        echo -e "${YELLOW}${PENDING}${NC}"
+        echo -e "${CYAN}  nano /root/deployvtc/.env && pm2 restart deployvtc${NC}"
+    fi
 fi
 
 # ==================== STEP 8: Nginx + SSL ====================

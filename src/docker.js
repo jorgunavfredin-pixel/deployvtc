@@ -300,7 +300,11 @@ const backupDatabase = (containerName) => {
             break;
         } catch (e) {
             console.log(`[BACKUP] WAL checkpoint attempt ${i}/3 failed for ${containerName}: ${e.message}`);
-            if (i < 3) require('timers/promises').setTimeout(2000); // delay 2s sebelum retry
+            // Delay 2s sebelum retry. Harus SINKRON — fungsi ini bukan async,
+            // jadi timers/promises.setTimeout (yang return Promise) tidak akan menunggu.
+            if (i < 3) {
+                try { execSync('sleep 2', { timeout: 5000 }); } catch (_) { }
+            }
         }
     }
     if (!walOk) {

@@ -60,7 +60,15 @@ const registerSystemHandlers = (bot, adminIds) => {
 
         let success = 0, failed = 0;
         for (const dep of deployments) {
-            const backupFile = dockerEngine.backupDatabase(dep.container_name);
+            // backupDatabase() bisa throw (WAL checkpoint gagal) — jangan sampai
+            // 1 container bermasalah membatalkan seluruh batch.
+            let backupFile = null;
+            try {
+                backupFile = dockerEngine.backupDatabase(dep.container_name);
+            } catch (e) {
+                failed++;
+                continue;
+            }
             if (backupFile) {
                 try {
                     await ctx.replyWithDocument(

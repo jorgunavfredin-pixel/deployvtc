@@ -520,11 +520,19 @@ router.post('/api/admin/backup-all', requireAuth, adminLimiter, async (req, res)
         }
 
         const backups = [];
+        const failures = [];
         for (const dep of deployments) {
-            const file = dockerEngine.backupDatabase(dep.container_name);
-            if (file) backups.push({ container: dep.container_name, store: dep.store_name, file });
+            // backupDatabase() bisa throw (WAL checkpoint gagal). Tangkap per-container
+            // supaya 1 container bermasalah tidak membatalkan seluruh batch.
+            try {
+                const file = dockerEngine.backupDatabase(dep.container_name);
+                if (file) backups.push({ container: dep.container_name, store: dep.store_name, file });
+                else failures.push({ container: dep.container_name, store: dep.store_name, error: 'Database tidak ditemukan' });
+            } catch (e) {
+                failures.push({ container: dep.container_name, store: dep.store_name, error: e.message });
+            }
         }
-        res.json({ success: true, backups });
+        res.json({ success: true, backups, failures });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

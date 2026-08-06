@@ -92,6 +92,18 @@ for (const [column, sql] of [
   catch (_) { db.exec(sql); console.log(`[DB] Added ${column} to deployments`); }
 }
 
+// Migration: container hasil import lama semuanya memakai license_key 'IMPORTED'.
+// Kunci itu tidak ada di tabel licenses, jadi buyer tidak bisa renew, dan karena
+// nilainya sama untuk semua baris, getDeploymentByLicense hanya menemukan satu.
+// Terbitkan lisensi asli untuk tiap baris tersebut. Dijalankan di bawah setelah
+// helper lisensi terdefinisi.
+let pendingImportedMigration = [];
+try {
+  pendingImportedMigration = db.prepare("SELECT id, buyer_name FROM deployments WHERE license_key = 'IMPORTED'").all();
+} catch (_) {
+  pendingImportedMigration = [];
+}
+
 // ==================== LICENSE ====================
 
 const generateLicenseKey = () => {
@@ -281,18 +293,80 @@ const extendDeploymentExpiry = (containerName, days) => {
 };
 
 /**
- * Create deployment record for imported containers (no license)
+ * Create deployment record for imported containers.
+ *
+ * Container hasil import tidak membawa lisensi. Dulu semuanya diberi
+ * license_key literal 'IMPORTED', yang menimbulkan dua masalah:
+ *   1. getDeploymentByLicense('IMPORTED') hanya mengembalikan SATU baris,
+ *      jadi container import kedua dan seterusnya tidak terjangkau.
+ *   2. Kunci itu tidak ada di tabel licenses, sehingga /api/renew/check
+ *      menjawab "License key not found" dan buyer tidak bisa perpanjang.
+ *
+ * Sekarang setiap import menerbitkan lisensi asli (status 'used') dan
+ * memasangnya ke deployment, sehingga alur renew bekerja sama persis
+ * seperti container hasil deploy normal.
+ *
+ * data.license_key opsional: kalau admin memasok lisensi yang sudah ada
+ * (kasus migrasi antar-VPS), lisensi itu dipakai dan tidak diterbitkan
+ * yang baru.
  */
 const createImportedDeployment = (data) => {
     const created_at = new Date().toISOString();
     const expires_at = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const buyerName = data.buyer_name || 'imported';
+
+    let license = null;
+
+    // Pakai lisensi yang dipasok admin kalau valid dan belum dipakai container lain
+    if (data.license_key) {
+        const existing = getLicenseByKey(String(data.license_key).trim().toUpperCase());
+        if (existing && existing.status !== 'revoked' && !getDeploymentByLicense(existing.key)) {
+            license = existing;
+            if (existing.status === 'unused') markLicenseUsed(existing.key);
+        }
+    }
+
+    // Kalau tidak ada, terbitkan lisensi baru khusus container ini
+    if (!license) {
+        license = createLicense(buyerName, '', 'full', 30);
+        markLicenseUsed(license.key);
+        license = getLicenseByKey(license.key);
+    }
+
     const result = db.prepare(
         'INSERT INTO deployments (license_id, license_key, buyer_name, container_name, port, store_name, bot_token, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(null, 'IMPORTED', data.buyer_name || 'imported', data.container_name, data.port, data.store_name, data.bot_token || '', 'running', created_at, expires_at);
-    return { id: result.lastInsertRowid, ...data, status: 'running', created_at, expires_at };
+    ).run(license.id, license.key, buyerName, data.container_name, data.port, data.store_name, data.bot_token || '', 'running', created_at, expires_at);
+
+    return {
+        id: result.lastInsertRowid,
+        ...data,
+        license_key: license.key,
+        license_id: license.id,
+        buyer_name: buyerName,
+        status: 'running',
+        created_at,
+        expires_at
+    };
 };
 
 // ==================== SYSTEM LOGS ====================
+
+// Jalankan migrasi 'IMPORTED' di sini — createLicense/markLicenseUsed sudah terdefinisi.
+if (pendingImportedMigration.length > 0) {
+    for (const row of pendingImportedMigration) {
+        try {
+            const lic = createLicense(row.buyer_name || 'imported', '', 'full', 30);
+            markLicenseUsed(lic.key);
+            const full = getLicenseByKey(lic.key);
+            db.prepare('UPDATE deployments SET license_key = ?, license_id = ? WHERE id = ?')
+                .run(full.key, full.id, row.id);
+            console.log(`[DB] Migrasi import: deployment #${row.id} → lisensi ${full.key}`);
+        } catch (e) {
+            console.error(`[DB] Migrasi import gagal untuk deployment #${row.id}:`, e.message);
+        }
+    }
+    pendingImportedMigration = [];
+}
 
 const addSystemLog = (type, message, details = null) => {
     const created_at = new Date().toISOString();

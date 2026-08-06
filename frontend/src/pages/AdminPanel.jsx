@@ -342,6 +342,7 @@ export default function AdminPanel({ onLogout }) {
                                     onTimer={setTimerDep}
                                     onImport={() => setShowImport(true)}
                                     onConfig={openConfig}
+                                    notify={notify}
                                 />
                             )}
                             {tab === 'audit' && <AuditView audit={audit} />}
@@ -652,7 +653,7 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig 
 
 // ==================== DEPLOYMENTS ====================
 
-function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImport, onConfig }) {
+function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImport, onConfig, notify }) {
     const [filter, setFilter] = useState('all')
     const [q, setQ] = useState('')
     const filtered = deployments.filter(d => {
@@ -680,7 +681,7 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
             </div>
             <div className="admin-card">
                 <table className="admin-table">
-                    <thead><tr><th>Store</th><th>Container</th><th>Port</th><th>Status</th><th>Uptime</th><th>Expired</th><th>Aksi</th></tr></thead>
+                    <thead><tr><th>Store</th><th>Container</th><th>License</th><th>Port</th><th>Status</th><th>Uptime</th><th>Expired</th><th>Aksi</th></tr></thead>
                     <tbody>
                         {filtered.map(d => {
                             const cs = d.container_status || {}
@@ -691,6 +692,15 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                                         <div className="admin-dim">{d.buyer_name || '-'}</div>
                                     </td>
                                     <td data-label="Container" className="admin-mono" style={{ fontSize: '0.75rem' }}>{d.container_name}</td>
+                                    <td data-label="License" className="admin-mono" style={{ fontSize: '0.72rem' }}>
+                                        {d.license_key
+                                            ? <span title={`Klik untuk salin: ${d.license_key}`}
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={() => { navigator.clipboard?.writeText(d.license_key); notify?.('License key disalin') }}>
+                                                {d.license_key.slice(0, 14)}…
+                                            </span>
+                                            : <span className="admin-dim">—</span>}
+                                    </td>
                                     <td data-label="Port" className="admin-mono">:{d.port}</td>
                                     <td data-label="Status"><StatusBadge running={cs.running} status={cs.status || d.status} /></td>
                                     <td data-label="Uptime">{cs.running ? formatUptime(cs.uptime) : '-'}</td>

@@ -143,6 +143,28 @@ const revokeLicense = (key) => {
     db.prepare('UPDATE licenses SET status = ? WHERE key = ?').run('revoked', key);
 };
 
+/**
+ * Hapus lisensi dari tabel. Hanya dipanggil setelah route memastikan
+ * lisensi berstatus 'revoked' dan container-nya tidak sedang berjalan.
+ *
+ * Tabel deployments punya FOREIGN KEY ke licenses(id), jadi baris deployment
+ * yang masih menunjuk lisensi ini harus dilepas tautannya lebih dulu — kalau
+ * tidak, SQLite menolak dengan "FOREIGN KEY constraint failed". Yang dilepas
+ * hanya license_id-nya; baris deployment, container, dan datanya dibiarkan
+ * utuh karena itu wewenang menu Deployments. license_key sengaja tetap
+ * tersimpan sebagai jejak riwayat.
+ */
+const deleteLicense = (key) => {
+    const lic = db.prepare('SELECT id FROM licenses WHERE key = ?').get(key);
+    if (!lic) return 0;
+
+    const tx = db.transaction(() => {
+        db.prepare('UPDATE deployments SET license_id = NULL WHERE license_id = ?').run(lic.id);
+        return db.prepare('DELETE FROM licenses WHERE key = ?').run(key).changes;
+    });
+    return tx();
+};
+
 const updateLicenseTier = (id, tier) => {
     const validTier = tier === 'chat' ? 'chat' : 'full';
     db.prepare('UPDATE licenses SET tier = ? WHERE id = ?').run(validTier, id);
@@ -396,6 +418,7 @@ module.exports = {
     validateLicense,
     markLicenseUsed,
     revokeLicense,
+    deleteLicense,
     updateLicenseTier,
     getLicenses,
     getLicenseByKey,

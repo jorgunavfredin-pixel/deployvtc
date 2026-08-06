@@ -182,17 +182,51 @@ router.get('/api/admin/dashboard', requireAuth, adminLimiter, async (req, res) =
 
 /**
  * GET /api/admin/licenses
- * List semua license.
+ * List semua license + status container LIVE dari Docker.
+ *
+ * Status 'used' di tabel licenses saja tidak cukup untuk memutuskan apakah
+ * sebuah lisensi aman di-revoke: baris deployment bisa saja masih ada
+ * sementara container-nya sudah lama mati atau malah sudah dihapus. Panel
+ * perlu tahu keadaan sebenarnya, jadi status Docker ikut dikirim.
  */
-router.get('/api/admin/licenses', requireAuth, adminLimiter, (req, res) => {
+router.get('/api/admin/licenses', requireAuth, adminLimiter, async (req, res) => {
     try {
-        const licenses = db.getLicenses().map(l => {
+        const licenses = [];
+        for (const l of db.getLicenses()) {
             const dep = db.getDeploymentByLicense(l.key);
-            return {
+
+            let deployment = null;
+            if (dep) {
+                let cs = { running: false, status: 'unknown' };
+                try {
+                    cs = await dockerEngine.getStatus(dep.container_name);
+                } catch (e) { /* container hilang → biarkan unknown */ }
+
+                deployment = {
+                    container_name: dep.container_name,
+                    port: dep.port,
+                    store_name: dep.store_name,
+                    status: dep.status,
+                    expires_at: dep.expires_at,
+                    // Keadaan sebenarnya di Docker
+                    container_running: cs.running === true,
+                    container_state: cs.status || 'unknown',
+                    container_exists: cs.status !== 'not found'
+                };
+            }
+
+            licenses.push({
                 ...l,
-                deployment: dep ? { container_name: dep.container_name, port: dep.port, store_name: dep.store_name, status: dep.status, expires_at: dep.expires_at } : null
-            };
-        });
+                deployment,
+                // Ringkasan siap pakai untuk UI:
+                //   safe_to_revoke  → tidak ada container hidup di belakangnya
+                //   deletable       → sudah revoked & tidak ada container hidup
+                //   orphan_record   → baris deployment ada tapi container sudah lenyap
+                safe_to_revoke: !deployment || !deployment.container_running,
+                deletable: l.status === 'revoked' && (!deployment || !deployment.container_running),
+                orphan_record: !!(deployment && !deployment.container_exists)
+            });
+        }
         res.json({ success: true, licenses });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
@@ -255,24 +289,97 @@ router.post('/api/admin/licenses/:key/tier', requireAuth, adminLimiter, async (r
 
 /**
  * POST /api/admin/licenses/:key/revoke
- * Revoke license + stop container.
+ * Mencabut lisensi. TIDAK menyentuh container sama sekali.
+ *
+ * Aturan: revoke hanya boleh saat container sudah mati. Revoke murni urusan
+ * lisensi — mencopot hak pakai, bukan mematikan atau menghapus apa pun.
+ * Menghentikan atau menghapus container adalah wewenang menu Deployments.
+ * Kalau container masih hidup, permintaan ditolak dan admin diarahkan ke sana
+ * lebih dulu; tidak ada opsi paksa, supaya tidak ada jalan pintas yang bisa
+ * mematikan toko buyer dari menu License.
  */
 router.post('/api/admin/licenses/:key/revoke', requireAuth, adminLimiter, async (req, res) => {
+    try {
+        const key = String(req.params.key || '').toUpperCase();
+
+        const lic = db.getLicenseByKey(key);
+        if (!lic) return res.status(404).json({ success: false, error: 'License tidak ditemukan' });
+        if (lic.status === 'revoked') {
+            return res.status(400).json({ success: false, error: 'License sudah di-revoke' });
+        }
+
+        const dep = db.getDeploymentByLicense(key);
+
+        // Tanyakan keadaan sebenarnya ke Docker — status 'used' di tabel tidak
+        // memberi tahu apakah container-nya hidup.
+        if (dep) {
+            let cs = null;
+            try { cs = await dockerEngine.getStatus(dep.container_name); } catch (e) { cs = null; }
+
+            if (cs?.running === true) {
+                return res.status(409).json({
+                    success: false,
+                    error: `Container ${dep.container_name} masih berjalan. Stop dulu lewat menu Deployments, baru license bisa di-revoke.`,
+                    container: {
+                        name: dep.container_name,
+                        store_name: dep.store_name,
+                        port: dep.port,
+                        state: cs.status
+                    }
+                });
+            }
+        }
+
+        // Hanya status lisensi yang berubah. Container dan datanya dibiarkan utuh.
+        db.revokeLicense(key);
+        logAudit('license_revoke', `${key}${dep ? ` (${dep.container_name})` : ''}`);
+
+        res.json({ success: true, message: 'License di-revoke' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+/**
+ * DELETE /api/admin/licenses/:key
+ * Menghapus lisensi yang sudah di-revoke dari daftar.
+ *
+ * Sama seperti revoke: container tidak disentuh. Baris deployment yang
+ * menunjuk lisensi ini pun dibiarkan, supaya menu Deployments tetap menjadi
+ * satu-satunya tempat yang mengatur hidup-matinya container. Penghapusan
+ * ditolak selama container masih berjalan.
+ */
+router.delete('/api/admin/licenses/:key', requireAuth, adminLimiter, async (req, res) => {
     try {
         const key = String(req.params.key || '').toUpperCase();
         const lic = db.getLicenseByKey(key);
         if (!lic) return res.status(404).json({ success: false, error: 'License tidak ditemukan' });
 
-        if (lic.status === 'used') {
-            const dep = db.getDeploymentByLicense(key);
-            if (dep) {
-                try { await dockerEngine.stopBot(dep.container_name); } catch (e) { }
-                db.updateDeploymentStatus(dep.container_name, 'stopped');
+        if (lic.status !== 'revoked') {
+            return res.status(400).json({
+                success: false,
+                error: `Hanya license berstatus revoked yang bisa dihapus (status sekarang: ${lic.status})`
+            });
+        }
+
+        const dep = db.getDeploymentByLicense(key);
+        if (dep) {
+            let cs = null;
+            try { cs = await dockerEngine.getStatus(dep.container_name); } catch (e) { cs = null; }
+
+            if (cs?.running === true) {
+                return res.status(409).json({
+                    success: false,
+                    error: `Container ${dep.container_name} masih berjalan. Hapus container itu dulu lewat menu Deployments.`
+                });
             }
         }
 
-        db.revokeLicense(key);
-        res.json({ success: true, message: 'License di-revoke' });
+        const removed = db.deleteLicense(key);
+        if (!removed) return res.status(500).json({ success: false, error: 'Gagal menghapus license' });
+
+        logAudit('license_delete', key);
+        res.json({ success: true, message: 'License dihapus dari daftar' });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }

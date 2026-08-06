@@ -5,7 +5,7 @@ import {
     Play, Square, RotateCw, Hammer, Trash2, Clock, ExternalLink,
     Server, Wallet, HardDrive, Loader2, Download, Upload, Database,
     Settings2, ScrollText, Search, ShieldCheck, X, CheckCircle2, AlertTriangle,
-    Store, Save, Copy, AlertCircle
+    Store, Save, Copy, AlertCircle, Ban
 } from 'lucide-react'
 import { LogoIcon } from '../components/Logo'
 
@@ -186,11 +186,25 @@ export default function AdminPanel({ onLogout }) {
     }
 
     const revokeLicense = async (key, name) => {
-        if (!window.confirm(`Revoke license ${name || key}? Container akan di-stop.`)) return
+        if (!window.confirm(`Revoke license ${name || key}?\n\nHanya mencabut license. Container dan datanya tidak disentuh.`)) return
         setBusy(`revoke-${key}`)
         try {
-            await api(`/api/admin/licenses/${key}/revoke`, { method: 'POST' })
-            notify('License di-revoke')
+            const d = await api(`/api/admin/licenses/${key}/revoke`, {
+                method: 'POST',
+                body: JSON.stringify({})
+            })
+            notify(d.message || 'License di-revoke')
+            await loadLicenses(); await loadDeployments(); await loadDashboard()
+        } catch (e) { notify(e.message, 'err') }
+        setBusy('')
+    }
+
+    const deleteLicense = async (key, name) => {
+        if (!window.confirm(`Hapus license ${name || key} dari daftar?\n\nHanya menghapus catatan license, container tidak disentuh.`)) return
+        setBusy(`dellic-${key}`)
+        try {
+            const d = await api(`/api/admin/licenses/${key}`, { method: 'DELETE' })
+            notify(d.message || 'License dihapus')
             await loadLicenses(); await loadDeployments(); await loadDashboard()
         } catch (e) { notify(e.message, 'err') }
         setBusy('')
@@ -330,6 +344,7 @@ export default function AdminPanel({ onLogout }) {
                                     onNew={() => setShowNewLic(true)}
                                     onChangeTier={changeTier}
                                     onRevoke={revokeLicense}
+                                    onDelete={deleteLicense}
                                     onConfig={openConfig}
                                 />
                             )}
@@ -582,7 +597,7 @@ function DashboardView({ data }) {
 
 // ==================== LICENSES ====================
 
-function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig }) {
+function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onDelete, onConfig }) {
     const [filter, setFilter] = useState('all')
     const [q, setQ] = useState('')
     const filtered = licenses.filter(l => {
@@ -625,7 +640,18 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig 
                                 <td data-label="Durasi">{l.initial_days ? `${l.initial_days} hr` : '30 hr'}</td>
                                 <td data-label="Status"><LicStatusBadge status={l.status} /></td>
                                 <td data-label="Deployment">
-                                    {l.deployment ? <span className="admin-mono" style={{ fontSize: '0.75rem' }}>{l.deployment.container_name} :{l.deployment.port}</span> : <span className="admin-dim">—</span>}
+                                    {l.deployment ? (
+                                        <div>
+                                            <span className="admin-mono" style={{ fontSize: '0.75rem' }}>{l.deployment.container_name} :{l.deployment.port}</span>
+                                            <div style={{ marginTop: 3 }}>
+                                                {l.deployment.container_running
+                                                    ? <span className="badge badge-green">● Aktif</span>
+                                                    : !l.deployment.container_exists
+                                                        ? <span className="badge badge-gray" title="Baris masih ada di database, tapi container sudah tidak ada di Docker">⚠ Container hilang</span>
+                                                        : <span className="badge badge-amber">○ Mati ({l.deployment.container_state})</span>}
+                                            </div>
+                                        </div>
+                                    ) : <span className="admin-dim">—</span>}
                                 </td>
                                 <td data-label="Aksi">
                                     <div className="admin-actions">
@@ -635,8 +661,25 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onConfig 
                                             </button>
                                         )}
                                         {l.status !== 'revoked' && (
-                                            <button className="btn btn-danger btn-xs" disabled={busy === `revoke-${l.key}`} onClick={() => onRevoke(l.key, l.buyer_name)}>
-                                                {busy === `revoke-${l.key}` ? <Loader2 className="spin" size={12} /> : <Trash2 size={12} />} Revoke
+                                            <button
+                                                className="btn btn-danger btn-xs"
+                                                disabled={busy === `revoke-${l.key}` || !l.safe_to_revoke}
+                                                onClick={() => onRevoke(l.key, l.buyer_name)}
+                                                title={l.safe_to_revoke
+                                                    ? 'Cabut license (container tidak disentuh)'
+                                                    : 'Container masih berjalan — stop dulu di menu Deployments'}>
+                                                {busy === `revoke-${l.key}` ? <Loader2 className="spin" size={12} /> : <Ban size={12} />} Revoke
+                                            </button>
+                                        )}
+                                        {l.status === 'revoked' && (
+                                            <button
+                                                className="btn btn-danger btn-xs"
+                                                disabled={busy === `dellic-${l.key}` || !l.deletable}
+                                                onClick={() => onDelete(l.key, l.buyer_name)}
+                                                title={l.deletable
+                                                    ? 'Hapus license dari daftar'
+                                                    : 'Tidak bisa dihapus — container masih berjalan'}>
+                                                {busy === `dellic-${l.key}` ? <Loader2 className="spin" size={12} /> : <Trash2 size={12} />} Hapus
                                             </button>
                                         )}
                                     </div>

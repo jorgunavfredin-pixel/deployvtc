@@ -620,6 +620,80 @@ const importContainer = async (tarPath, usedPorts = []) => {
     }
 };
 
+// ==================== REBUILD STORE-BOT IMAGE ====================
+// Fase 1: git pull repo vitaicmin + docker build image template (store-bot),
+// TANPA menyentuh container yang sedang jalan. Log di-stream lewat callback.
+// Command HARDCODED (tidak ada input user) untuk cegah injeksi.
+
+const { spawn } = require('child_process');
+
+const BOT_REPO_DIR = process.env.BOT_REPO_DIR || '/root/vitaicmin';
+let _rebuildInProgress = false; // lock: cegah build dobel
+
+const isRebuildInProgress = () => _rebuildInProgress;
+
+/**
+ * Rebuild image template store-bot.
+ * @param {(line:string)=>void} onLog - dipanggil tiap baris output (untuk SSE).
+ * @returns {Promise<{success:boolean, code:number, error?:string}>}
+ */
+const rebuildImage = (onLog = () => {}) => {
+    return new Promise((resolve) => {
+        if (_rebuildInProgress) {
+            return resolve({ success: false, error: 'Rebuild sedang berjalan, tunggu sampai selesai.' });
+        }
+        if (!fs.existsSync(BOT_REPO_DIR) || !fs.existsSync(path.join(BOT_REPO_DIR, 'Dockerfile'))) {
+            return resolve({ success: false, error: `Repo/Dockerfile tidak ditemukan di ${BOT_REPO_DIR}` });
+        }
+        _rebuildInProgress = true;
+        const emit = (l) => { try { onLog(l); } catch (_) {} };
+
+        // Rangkaian command hardcoded: git pull lalu docker build.
+        // Pakai bash -lc dengan argumen tetap (bukan string dinamis dari user).
+        const script = `set -e
+cd ${BOT_REPO_DIR}
+echo "▶ git pull ${BOT_REPO_DIR}..."
+git pull --ff-only 2>&1 || echo "⚠ git pull gagal/di-skip, lanjut build dengan kode yang ada"
+echo "▶ docker build -t ${TEMPLATE_IMAGE} ..."
+docker build -t ${TEMPLATE_IMAGE} . 2>&1
+echo "✓ Selesai: image ${TEMPLATE_IMAGE} berhasil dibuild."`;
+
+        const child = spawn('bash', ['-lc', script], { cwd: BOT_REPO_DIR });
+        const started = Date.now();
+
+        const pipe = (buf) => {
+            buf.toString('utf8').split('\n').forEach(line => { if (line.length) emit(line); });
+        };
+        child.stdout.on('data', pipe);
+        child.stderr.on('data', pipe);
+
+        // Guard timeout 15 menit
+        const killer = setTimeout(() => {
+            emit('✗ Timeout 15 menit — build dibatalkan.');
+            try { child.kill('SIGKILL'); } catch (_) {}
+        }, 15 * 60 * 1000);
+
+        child.on('close', (code) => {
+            clearTimeout(killer);
+            _rebuildInProgress = false;
+            const dur = Math.round((Date.now() - started) / 1000);
+            if (code === 0) {
+                emit(`✓ Build sukses dalam ${dur}s. Container LAMA tetap pakai image sebelumnya sampai di-recreate.`);
+                resolve({ success: true, code: 0, durationSec: dur });
+            } else {
+                emit(`✗ Build gagal (exit ${code}) setelah ${dur}s.`);
+                resolve({ success: false, code, error: `docker build gagal (exit ${code})` });
+            }
+        });
+        child.on('error', (err) => {
+            clearTimeout(killer);
+            _rebuildInProgress = false;
+            emit('✗ Error: ' + err.message);
+            resolve({ success: false, error: err.message });
+        });
+    });
+};
+
 module.exports = {
     deployBot,
     stopBot,
@@ -634,5 +708,7 @@ module.exports = {
     exportContainer,
     importContainer,
     listContainers,
-    getDiskUsage
+    getDiskUsage,
+    rebuildImage,
+    isRebuildInProgress
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
     LayoutDashboard, KeyRound, Boxes, LogOut, RefreshCw, Plus,
@@ -700,6 +700,9 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
     const [filter, setFilter] = useState('all')
     const [q, setQ] = useState('')
     const [backingUp, setBackingUp] = useState(false)
+    const [rebuilding, setRebuilding] = useState(false)
+    const [rebuildLog, setRebuildLog] = useState(null) // null=modal tutup; array=terbuka
+    const rebuildBoxRef = useRef(null)
     const filtered = deployments.filter(d => {
         const matchFilter = filter === 'all' || d.status === filter
         const matchQ = !q || (d.store_name || '').toLowerCase().includes(q.toLowerCase()) || (d.container_name || '').toLowerCase().includes(q.toLowerCase())
@@ -720,11 +723,47 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
         setBackingUp(false)
     }
 
+    const rebuildImage = () => {
+        if (rebuilding) return
+        if (!confirm('Rebuild image store-bot dari repo terbaru?\n\nProses ini git pull + docker build (2-5 menit). Container yang sedang jalan TIDAK terpengaruh — mereka baru pakai versi baru setelah di-recreate.')) return
+        setRebuilding(true)
+        setRebuildLog(['⚙ Menghubungkan...'])
+        const es = new EventSource('/api/admin/rebuild-image')
+        es.onmessage = (ev) => {
+            let msg; try { msg = JSON.parse(ev.data) } catch { return }
+            if (msg.type === 'log') {
+                setRebuildLog(prev => [...(prev || []), msg.line])
+                requestAnimationFrame(() => { if (rebuildBoxRef.current) rebuildBoxRef.current.scrollTop = rebuildBoxRef.current.scrollHeight })
+            } else if (msg.type === 'done') {
+                es.close(); setRebuilding(false)
+                notify(msg.success ? `Image berhasil dibuild (${msg.durationSec || '?'}s)` : `Rebuild gagal: ${msg.error || ''}`, msg.success ? 'ok' : 'err')
+            }
+        }
+        es.onerror = () => { es.close(); setRebuilding(false); setRebuildLog(prev => [...(prev || []), '✗ Koneksi terputus.']) }
+    }
+
     return (
         <div>
+            {rebuildLog && (
+                <div className="admin-modal-overlay" onClick={() => { if (!rebuilding) setRebuildLog(null) }}>
+                    <div className="admin-modal admin-modal-lg" onClick={e => e.stopPropagation()}>
+                        <div className="modal-head">
+                            <h3><Hammer size={18} /> Rebuild Image store-bot</h3>
+                            {!rebuilding && <button className="modal-close" onClick={() => setRebuildLog(null)}><X size={18} /></button>}
+                        </div>
+                        <pre ref={rebuildBoxRef} style={{ background: '#050609', border: '1px solid var(--line)', borderRadius: 10, padding: 14, maxHeight: 420, overflow: 'auto', fontSize: 12, lineHeight: 1.55, color: '#c2c7d0', whiteSpace: 'pre-wrap', margin: 0 }}>
+                            {(rebuildLog || []).join('\n')}
+                        </pre>
+                        {rebuilding && <div className="admin-dim" style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}><span className="spinner" /> Sedang build... jangan tutup halaman.</div>}
+                    </div>
+                </div>
+            )}
             <div className="admin-title-row">
                 <h2 className="admin-title">Deployments</h2>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-outline btn-sm" onClick={rebuildImage} disabled={rebuilding} title="git pull + docker build image store-bot (tidak menyentuh container yang jalan)">
+                        <Hammer size={15} /> {rebuilding ? 'Building...' : 'Rebuild Image'}
+                    </button>
                     <button className="btn btn-outline btn-sm" onClick={backupAll} disabled={backingUp}>
                         <Database size={15} /> {backingUp ? 'Backup...' : 'Backup All'}
                     </button>

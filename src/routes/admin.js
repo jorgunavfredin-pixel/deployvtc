@@ -902,4 +902,49 @@ router.get('/api/admin/system-logs', requireAuth, (req, res) => {
     }
 });
 
+/**
+ * GET /api/admin/rebuild-image (SSE)
+ * Rebuild image template store-bot (git pull + docker build), stream log real-time.
+ * TIDAK menyentuh container yang sedang jalan (Fase 1).
+ */
+router.get('/api/admin/rebuild-image', requireAuth, (req, res) => {
+    if (dockerEngine.isRebuildInProgress()) {
+        return res.status(409).json({ success: false, error: 'Rebuild sedang berjalan.' });
+    }
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    const send = (obj) => { try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch (_) {} };
+    send({ type: 'log', line: '⚙ Memulai rebuild image store-bot...' });
+    logAudit('REBUILD_IMAGE', 'Mulai rebuild image store-bot', 'admin');
+
+    // Heartbeat biar koneksi SSE nggak putus saat build lama
+    const hb = setInterval(() => { try { res.write(': ping\n\n'); } catch (_) {} }, 15000);
+
+    dockerEngine.rebuildImage((line) => send({ type: 'log', line }))
+        .then((result) => {
+            clearInterval(hb);
+            send({ type: 'done', success: result.success, error: result.error || null, durationSec: result.durationSec || null });
+            logAudit('REBUILD_IMAGE', result.success ? `Rebuild sukses (${result.durationSec}s)` : `Rebuild gagal: ${result.error}`, 'admin');
+            try { res.end(); } catch (_) {}
+        })
+        .catch((e) => {
+            clearInterval(hb);
+            send({ type: 'done', success: false, error: e.message });
+            try { res.end(); } catch (_) {}
+        });
+
+    req.on('close', () => { clearInterval(hb); });
+});
+
+/**
+ * GET /api/admin/rebuild-status — cek apakah rebuild sedang berjalan.
+ */
+router.get('/api/admin/rebuild-status', requireAuth, (req, res) => {
+    res.json({ success: true, inProgress: dockerEngine.isRebuildInProgress() });
+});
+
 module.exports = router;

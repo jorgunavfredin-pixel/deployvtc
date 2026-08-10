@@ -280,7 +280,14 @@ const setActiveGateway = (containerName, provider, credentials) => {
 };
 
 /**
- * Ganti theme preset QRIS (copy file + update .env).
+ * Ganti theme preset QRIS twibbon untuk sebuah container bot.
+ *
+ * PENTING (fix bug "theme tidak terdeteksi"):
+ * Bot vitaicmin TIDAK membaca env THEME_PRESET sama sekali. Twibbon aktif
+ * dipilih dari tabel settings key 'qris_custom_config' (JSON) yang dibaca
+ * qrisCustom.getConfig(): { enabled, source:'preset', preset_id, layout }.
+ * Jadi ganti theme HARUS: (1) copy file preset ke assets bot, (2) tulis
+ * qris_custom_config ke store.db. Menulis THEME_PRESET ke .env percuma.
  */
 const setTheme = (containerName, themePreset) => {
     const presetSourceDir = process.env.QRIS_PRESET_DIR || '/root/vitaicmin/assets/qris-custom/presets';
@@ -295,25 +302,67 @@ const setTheme = (containerName, themePreset) => {
     }
     if (!src) return { success: false, error: 'Preset tidak ditemukan' };
 
+    // 1) Copy file preset (gambar + sidecar .json layout kalau ada) ke assets bot.
     const destDir = path.join(DATA_DIR, containerName, 'assets', 'qris-custom', 'presets');
     fs.mkdirSync(destDir, { recursive: true });
     const ext = path.extname(src);
     fs.copyFileSync(src, path.join(destDir, `${id}${ext}`));
 
+    // Sidecar layout (posisi & ukuran QR) — ikut dicopy supaya render pas.
+    let layout = { x: 23.4375, y: 23.4375, size: 53.125 }; // DEFAULT_LAYOUT vitaicmin
+    const jsonSrc = path.join(presetSourceDir, `${id}.json`);
+    if (fs.existsSync(jsonSrc)) {
+        try {
+            const meta = JSON.parse(fs.readFileSync(jsonSrc, 'utf8'));
+            const l = meta.layout || meta;
+            if (l && (l.x != null || l.y != null || l.size != null)) {
+                layout = {
+                    x: Number(l.x) || layout.x,
+                    y: Number(l.y) || layout.y,
+                    size: Number(l.size) || layout.size
+                };
+            }
+            fs.copyFileSync(jsonSrc, path.join(destDir, `${id}.json`));
+        } catch (_) { /* sidecar korup → pakai default layout */ }
+    }
+
+    // 2) Tulis qris_custom_config ke store.db bot (ini yang benar-benar dibaca bot).
+    const config = {
+        enabled: true,
+        source: 'preset',
+        preset_id: id,
+        layout,
+        updated_at: new Date().toISOString()
+    };
+    let ddb = null;
+    try {
+        ddb = openBotDb(containerName);
+        if (!ddb) return { success: false, error: 'store.db tidak ditemukan' };
+        ddb.exec('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)');
+        ddb.prepare(
+            'INSERT INTO settings (key, value) VALUES (?, ?) ' +
+            'ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+        ).run('qris_custom_config', JSON.stringify(config));
+    } catch (e) {
+        return { success: false, error: 'Gagal tulis config ke store.db: ' + e.message };
+    } finally {
+        if (ddb) { try { ddb.close(); } catch (_) { } }
+    }
+
+    // 3) Bersihkan THEME_PRESET usang dari .env kalau ada (menghindari kebingungan).
     const envPath = path.join(DATA_DIR, containerName, '.env');
     try {
         if (fs.existsSync(envPath)) {
             let content = fs.readFileSync(envPath, 'utf8');
             if (/^THEME_PRESET=/m.test(content)) {
-                content = content.replace(/^THEME_PRESET=.*$/m, `THEME_PRESET=${id}`);
-            } else {
-                content += `\nTHEME_PRESET=${id}\n`;
+                content = content.replace(/^THEME_PRESET=.*$\n?/m, '');
+                fs.writeFileSync(envPath, content);
             }
-            fs.writeFileSync(envPath, content);
         }
     } catch (_) { }
 
-    return { success: true, theme: id };
+    // theme live tanpa restart (bot baca qris_custom_config fresh tiap render QR).
+    return { success: true, theme: id, live: true };
 };
 
 /**

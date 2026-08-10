@@ -699,17 +699,37 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onDelete,
 function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImport, onConfig, notify }) {
     const [filter, setFilter] = useState('all')
     const [q, setQ] = useState('')
+    const [backingUp, setBackingUp] = useState(false)
     const filtered = deployments.filter(d => {
         const matchFilter = filter === 'all' || d.status === filter
         const matchQ = !q || (d.store_name || '').toLowerCase().includes(q.toLowerCase()) || (d.container_name || '').toLowerCase().includes(q.toLowerCase())
         return matchFilter && matchQ
     })
 
+    const backupAll = async () => {
+        if (!confirm('Backup database SEMUA bot yang sedang running sekarang?')) return
+        setBackingUp(true)
+        try {
+            const res = await fetch('/api/admin/backup-all', { method: 'POST', credentials: 'include' })
+            const d = await res.json()
+            if (!d.success) throw new Error(d.error || 'Gagal')
+            const ok = (d.backups || []).length
+            const fail = (d.failures || []).length
+            notify(`Backup selesai: ${ok} berhasil${fail ? `, ${fail} gagal` : ''}`, fail ? 'err' : 'ok')
+        } catch (e) { notify(e.message, 'err') }
+        setBackingUp(false)
+    }
+
     return (
         <div>
             <div className="admin-title-row">
                 <h2 className="admin-title">Deployments</h2>
-                <button className="btn btn-primary btn-sm" onClick={onImport}><Upload size={15} /> Import Container</button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-outline btn-sm" onClick={backupAll} disabled={backingUp}>
+                        <Database size={15} /> {backingUp ? 'Backup...' : 'Backup All'}
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={onImport}><Upload size={15} /> Import Container</button>
+                </div>
             </div>
             <div className="admin-toolbar">
                 <div className="admin-filter-row">
@@ -896,15 +916,18 @@ function ConfigModal({ dep, data, onClose, onDone }) {
     }
 
     const saveTheme = async (restart) => {
+        if (!form.theme_preset) return notifyLocal('Pilih preset dulu', 'err')
         setSaving('theme')
         try {
-            const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/env`, {
+            // Endpoint /config/theme menulis qris_custom_config ke store.db bot
+            // (yang benar-benar dibaca bot). JANGAN pakai THEME_PRESET di .env — diabaikan bot.
+            const res = await fetch(`/api/admin/deployments/${dep.container_name}/config/theme`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ env: envFor(['THEME_PRESET']), restart })
+                body: JSON.stringify({ theme_preset: form.theme_preset, restart })
             })
             const d = await res.json()
             if (!d.success) throw new Error(d.error)
-            notifyLocal(restart ? 'Theme disimpan + restart' : 'Theme disimpan (belum restart)')
+            notifyLocal(restart ? 'Theme disimpan + restart' : 'Theme disimpan (live tanpa restart)')
             onDone()
         } catch (e) { notifyLocal(e.message, 'err') }
         setSaving('')
@@ -1122,7 +1145,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                                 <div className="form-group">
                                     <select className="form-input" value={form.theme_preset || ''} onChange={set('theme_preset')}>
                                         <option value="">Pilih Preset</option>
-                                        {['qris-1', 'qris-2', 'qris-3'].map(id => <option key={id} value={id}>{id}</option>)}
+                                        {Array.from({ length: 10 }, (_, i) => `qris-${i + 1}`).map(id => <option key={id} value={id}>{id}</option>)}
                                     </select>
                                 </div>
                                 <SectionActions saving={saving === 'theme'} onSave={() => saveTheme(false)} onSaveRestart={() => saveTheme(true)} />

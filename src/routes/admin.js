@@ -154,10 +154,33 @@ router.get('/api/admin/dashboard', requireAuth, adminLimiter, async (req, res) =
         const renewals = db.getAllRenewals(10);
         const disk = dockerEngine.getDiskUsage();
 
-        const running = deployments.filter(d => d.status === 'running');
-        const expired = deployments.filter(d => {
-            return d.status === 'running' && d.expires_at && new Date(d.expires_at).getTime() < Date.now();
-        });
+        // Status LIVE dari Docker (bukan catatan DB yang bisa basi).
+        // Cek tiap container: kalau catatan DB beda dari kondisi asli, rekonsiliasi.
+        const liveStatuses = await Promise.all(
+            deployments.map(async (d) => {
+                try {
+                    const s = await dockerEngine.getStatus(d.container_name);
+                    // 'running' hanya kalau benar-benar running & sehat (bukan restarting/exited).
+                    const isRunning = s.running === true && s.status === 'running';
+                    // Sinkronkan catatan DB kalau menyimpang (mis. container mati manual).
+                    const dbSaysRunning = d.status === 'running';
+                    if (isRunning !== dbSaysRunning) {
+                        try { db.updateDeploymentStatus(d.container_name, isRunning ? 'running' : 'stopped'); } catch (_) { }
+                    }
+                    return { dep: d, live: s, isRunning };
+                } catch (_) {
+                    return { dep: d, live: { running: false, status: 'unknown' }, isRunning: false };
+                }
+            })
+        );
+
+        const running = liveStatuses.filter(x => x.isRunning);
+        const expired = liveStatuses.filter(x =>
+            x.isRunning && x.dep.expires_at && new Date(x.dep.expires_at).getTime() < Date.now()
+        );
+        const unhealthy = liveStatuses.filter(x =>
+            !x.isRunning && ['restarting', 'exited', 'dead', 'created'].includes(x.live.status)
+        );
 
         // Hitung revenue dari renewals paid
         const paidTotal = db.getPaidRenewalTotal();
@@ -166,7 +189,12 @@ router.get('/api/admin/dashboard', requireAuth, adminLimiter, async (req, res) =
             success: true,
             stats: {
                 licenses: licStats,
-                deployments: { total: deployments.length, running: running.length, expired: expired.length },
+                deployments: {
+                    total: deployments.length,
+                    running: running.length,
+                    expired: expired.length,
+                    unhealthy: unhealthy.length
+                },
                 revenue: paidTotal,
                 disk
             },
@@ -400,7 +428,14 @@ router.get('/api/admin/deployments', requireAuth, adminLimiter, async (req, res)
             try {
                 status = await dockerEngine.getStatus(dep.container_name);
             } catch (e) { }
-            enriched.push({ ...dep, container_status: status });
+            // Sehat = benar-benar running (bukan restarting/exited/dead).
+            const healthy = status.running === true && status.status === 'running';
+            // Rekonsiliasi catatan DB kalau menyimpang dari kondisi asli container.
+            const dbSaysRunning = dep.status === 'running';
+            if (healthy !== dbSaysRunning) {
+                try { db.updateDeploymentStatus(dep.container_name, healthy ? 'running' : 'stopped'); } catch (_) { }
+            }
+            enriched.push({ ...dep, status: healthy ? 'running' : 'stopped', container_status: { ...status, healthy } });
         }
         res.json({ success: true, deployments: enriched });
     } catch (e) {

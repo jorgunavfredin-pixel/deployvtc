@@ -964,7 +964,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
         setSaving('all')
         const errors = []
         const envPatch = {
-            ...envFor(['BOT_TOKEN', 'ADMIN_TELEGRAM_ID', 'STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_TELEGRAM_URL', 'ADMIN_PANEL_PASSWORD', 'THEME_PRESET']),
+            ...envFor(['BOT_TOKEN', 'ADMIN_TELEGRAM_ID', 'STORE_NAME', 'ORDER_PREFIX', 'SUPPORT_TELEGRAM_URL', 'ADMIN_PANEL_PASSWORD']),
             PAKASIR_API_KEY: form.pakasir_api_key || '',
             PAKASIR_SLUG: form.pakasir_slug || '',
             WIJAYAPAY_CODE_MERCHANT: form.wijayapay_code_merchant || '',
@@ -996,7 +996,17 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                 if (!d2.success) throw new Error(d2.error)
             }
 
-            // 3. Banner kalau ada (tanpa restart)
+            // 3. Theme QRIS kalau dipilih (tulis qris_custom_config ke DB bot, tanpa restart)
+            if (form.theme_preset) {
+                const rt = await fetch(`/api/admin/deployments/${dep.container_name}/config/theme`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ theme_preset: form.theme_preset, restart: false })
+                })
+                const dt = await rt.json()
+                if (!dt.success) throw new Error(dt.error)
+            }
+
+            // 4. Banner kalau ada (tanpa restart)
             if (bannerFile) {
                 const fd = new FormData()
                 fd.append('banner', bannerFile)

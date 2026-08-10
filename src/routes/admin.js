@@ -801,12 +801,15 @@ router.post('/api/admin/deployments/:name/config/env', requireAuth, adminLimiter
             env.ADMIN_ID = env.ADMIN_TELEGRAM_ID;
         }
 
-        // Whitelist key yang boleh diubah
+        // Whitelist key yang boleh diubah.
+        // Catatan: THEME_PRESET sengaja TIDAK di sini — theme QRIS diatur lewat
+        // menu Theme QRIS (/config/theme) yang menulis qris_custom_config ke DB bot.
+        // Menulis THEME_PRESET ke .env percuma (bot tidak membacanya).
         const allowed = [
             'BOT_TOKEN', 'ADMIN_ID',
             'STORE_NAME', 'SUPPORT_TELEGRAM_URL', 'ORDER_PREFIX',
             'PAYMENT_TIMEOUT_MINUTES',
-            'ADMIN_PANEL_PASSWORD', 'THEME_PRESET',
+            'ADMIN_PANEL_PASSWORD',
             'PAKASIR_API_KEY', 'PAKASIR_SLUG',
             'WIJAYAPAY_CODE_MERCHANT', 'WIJAYAPAY_API_KEY',
             'XOWFTWARE_API_KEY', 'XOWFTWARE_MERCHANT_ID', 'XOWFTWARE_WEBHOOK_SECRET', 'XOWFTWARE_NOTIFY_URL', 'XOWFTWARE_FEE_DIRECTION',

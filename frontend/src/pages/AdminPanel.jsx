@@ -802,6 +802,15 @@ function ConfigModal({ dep, data, onClose, onDone }) {
     const [bannerFile, setBannerFile] = useState(null)
     const [saving, setSaving] = useState('')
     const [msg, setMsg] = useState(null)
+    const [presets, setPresets] = useState([])
+
+    // Ambil daftar preset QRIS asli dari server (dinamis — apa pun nama/jumlahnya).
+    useEffect(() => {
+        fetch('/api/qris-presets', { credentials: 'include' })
+            .then(r => r.json())
+            .then(d => { if (d.success) setPresets(d.presets || []) })
+            .catch(() => { })
+    }, [])
 
     // Init dari data backend (config.config = semua env field)
     useEffect(() => {
@@ -1145,7 +1154,7 @@ function ConfigModal({ dep, data, onClose, onDone }) {
                                 <div className="form-group">
                                     <select className="form-input" value={form.theme_preset || ''} onChange={set('theme_preset')}>
                                         <option value="">Pilih Preset</option>
-                                        {Array.from({ length: 10 }, (_, i) => `qris-${i + 1}`).map(id => <option key={id} value={id}>{id}</option>)}
+                                        {presets.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
                                     </select>
                                 </div>
                                 <SectionActions saving={saving === 'theme'} onSave={() => saveTheme(false)} onSaveRestart={() => saveTheme(true)} />

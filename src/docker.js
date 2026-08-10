@@ -61,10 +61,23 @@ const deployBot = async (config) => {
             const destPresetDir = path.join(buyerDir, 'assets', 'qris-custom', 'presets');
             fs.mkdirSync(destPresetDir, { recursive: true });
             let copied = false;
+            let layout = { x: 23.4375, y: 23.4375, size: 53.125 }; // DEFAULT_LAYOUT vitaicmin
             for (const ext of presetExts) {
                 const src = path.join(presetSourceDir, `${themePresetId}${ext}`);
                 if (fs.existsSync(src)) {
                     fs.copyFileSync(src, path.join(destPresetDir, `${themePresetId}${ext}`));
+                    // Sidecar layout preset (posisi & ukuran QR) — ikut copy kalau ada.
+                    const jsonSrc = path.join(presetSourceDir, `${themePresetId}.json`);
+                    if (fs.existsSync(jsonSrc)) {
+                        try {
+                            const meta = JSON.parse(fs.readFileSync(jsonSrc, 'utf8'));
+                            const l = meta.layout || meta;
+                            if (l && (l.x != null || l.y != null || l.size != null)) {
+                                layout = { x: Number(l.x) || layout.x, y: Number(l.y) || layout.y, size: Number(l.size) || layout.size };
+                            }
+                            fs.copyFileSync(jsonSrc, path.join(destPresetDir, `${themePresetId}.json`));
+                        } catch (_) { /* sidecar korup → default layout */ }
+                    }
                     copied = true;
                     break;
                 }
@@ -73,6 +86,26 @@ const deployBot = async (config) => {
                 // Fallback: copy semua preset yang ada di source biar bot bisa pilih
                 const files = fs.readdirSync(presetSourceDir).filter(f => presetExts.includes(path.extname(f).toLowerCase()));
                 for (const f of files) fs.copyFileSync(path.join(presetSourceDir, f), path.join(destPresetDir, f));
+            }
+
+            // PENTING (fix theme deploy pertama): bot memilih twibbon aktif dari
+            // qris_custom_config (DB) atau fallback config.json — BUKAN dari env THEME_PRESET.
+            // store.db belum ada saat deploy (bot yang bikin), jadi tulis config.json.
+            // Bot baca config.json saat start pertama → preset pilihan member langsung aktif.
+            if (copied) {
+                try {
+                    const qrisConfig = {
+                        enabled: true,
+                        source: 'preset',
+                        preset_id: themePresetId,
+                        layout,
+                        updated_at: new Date().toISOString()
+                    };
+                    fs.writeFileSync(
+                        path.join(buyerDir, 'assets', 'qris-custom', 'config.json'),
+                        JSON.stringify(qrisConfig, null, 2)
+                    );
+                } catch (_) { /* non-fatal: admin bisa set ulang theme dari panel */ }
             }
         }
 

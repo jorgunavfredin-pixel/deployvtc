@@ -1,77 +1,45 @@
 import { Link } from 'react-router-dom'
-import { Rocket, Send } from 'lucide-react'
-import { motion } from 'framer-motion'
 import PhoneMockup from './PhoneMockup'
+import Reveal from './Reveal'
 
 export default function Hero({ telegramLink }) {
     return (
-        <section className="hero">
-            {/* Decorative gradient orbs */}
-            <div className="hero-orb hero-orb-1" />
-            <div className="hero-orb hero-orb-2" />
-            <div className="hero-orb hero-orb-3" />
-
-            <div className="hero-inner">
-                <motion.div
-                    className="hero-content"
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
-                >
-                    <motion.div
-                        className="hero-badge"
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.2, duration: 0.5 }}
-                    >
-                        <span className="ping" />
-                        Telegram Store Bot Platform
-                    </motion.div>
-
-                    <h1>
-                        Automate Your{' '}
-                        <span className="gradient-text">Digital Store</span>
-                        {' '}on Telegram
+        <section className="ld-hero">
+            <div className="ld-orbit">
+                <div className="ld-circle ld-c1" />
+                <div className="ld-circle ld-c2" />
+                <div className="ld-circle ld-c3" />
+            </div>
+            <div className="wrap ld-hero-grid">
+                <Reveal className="ld-hero-text">
+                    <span className="ld-eyebrow-pill"><span className="dot" />Telegram Store Bot Platform</span>
+                    <h1 className="ld-h1">
+                        Automate Your <span className="ld-grad-text">Digital Store</span> on Telegram
                     </h1>
-
-                    <p>
-                        Bot Telegram premium untuk jualan digital. QRIS auto payment,
-                        saldo system, admin panel lengkap — deploy 5 menit, langsung jualan.
+                    <p className="ld-sub">
+                        Bot Telegram premium untuk jualan digital. QRIS auto payment, sistem saldo,
+                        panel admin lengkap — deploy dalam hitungan menit.
                     </p>
-
-                    <div className="hero-buttons">
-                        <Link to="/deploy" className="btn btn-primary btn-lg">
-                            <Rocket size={20} />
+                    <div className="ld-hero-cta">
+                        <Link to="/deploy" className="ld-btn ld-btn-primary">
+                            <svg className="icon-sm" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
                             Deploy Bot Sekarang
                         </Link>
-                        <a
-                            href={telegramLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-outline btn-lg"
-                        >
-                            <Send size={20} />
+                        <a className="ld-btn ld-btn-glass" href={telegramLink} target="_blank" rel="noopener noreferrer">
+                            <svg className="icon-sm" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z" /></svg>
                             Order via Telegram
                         </a>
                     </div>
+                    <div className="ld-trust-chips">
+                        <span className="ld-chip"><svg className="icon-sm" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>Secure Deploy</span>
+                        <span className="ld-chip"><svg className="icon-sm" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z" /></svg>Setup Cepat</span>
+                        <span className="ld-chip"><svg className="icon-sm" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>Server Stabil</span>
+                    </div>
+                </Reveal>
 
-                    {/* Trust badges */}
-                    <motion.div
-                        className="hero-trust"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.8 }}
-                    >
-                        <span>🔒 Secure Deploy</span>
-                        <span>⚡ 5 min Setup</span>
-                        <span>🎯 99.9% Uptime</span>
-                    </motion.div>
-                </motion.div>
-
-                {/* Phone mockup */}
-                <div className="hero-mockup">
+                <Reveal className="ld-phone-col">
                     <PhoneMockup />
-                </div>
+                </Reveal>
             </div>
         </section>
     )

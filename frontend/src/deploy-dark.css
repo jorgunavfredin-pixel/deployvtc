@@ -1,0 +1,207 @@
+/* ==================== BOTABLE DARK — Deploy & Renew pages ==================== */
+/* Overrides light leftovers from index.css. Scoped to .deploy-page so other
+   pages (admin, landing) are untouched. Design tokens come from :root. */
+
+/* Page background: subtle orbital glow like the landing hero */
+.deploy-page {
+  position: relative;
+  background:
+    radial-gradient(720px 420px at 12% -6%, rgba(34, 211, 166, 0.12), transparent 60%),
+    radial-gradient(680px 460px at 92% 4%, rgba(109, 114, 255, 0.12), transparent 62%);
+  overflow-x: hidden;
+}
+
+/* Glass card container */
+.deploy-page .deploy-container {
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+}
+
+.deploy-page .deploy-container::before {
+  background: linear-gradient(135deg, rgba(34, 211, 166, 0.35), rgba(109, 114, 255, 0.22), transparent);
+  opacity: 0.7;
+}
+
+.deploy-page .deploy-header h1 {
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+/* Step dots */
+.deploy-page .step-dot {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid var(--line-strong);
+  color: var(--muted);
+}
+.deploy-page .step-dot.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  color: #05070a;
+}
+.deploy-page .step-dot.done {
+  background: linear-gradient(135deg, var(--accent), var(--teal));
+  border-color: transparent;
+  color: #05070a;
+}
+.deploy-page .step-line { background: var(--line); }
+.deploy-page .step-line.active { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+
+/* Inputs / selects / textareas */
+.deploy-page .form-input,
+.deploy-page select.form-input,
+.deploy-page textarea.form-input {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1.5px solid var(--line);
+  color: var(--text);
+  backdrop-filter: none;
+}
+.deploy-page .form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(34, 211, 166, 0.18);
+  background: rgba(0, 0, 0, 0.42);
+}
+.deploy-page .form-input::placeholder { color: #6d7684; }
+.deploy-page select.form-input option { background: var(--panel-2); color: var(--text); }
+
+.deploy-page .form-input[type="file"]::file-selector-button {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #05070a;
+}
+
+/* Alerts */
+.deploy-page .alert-error {
+  background: var(--error-bg);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+.deploy-page .alert-success {
+  background: var(--success-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+}
+
+/* Result / info cards */
+.deploy-page .result-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: none;
+}
+.deploy-page .result-card h3 { color: var(--text); }
+.deploy-page .result-item { border-bottom: 1px solid var(--line); }
+.deploy-page .result-value { color: var(--text); }
+.deploy-page .instructions li { color: var(--muted); }
+.deploy-page .instructions li code,
+.deploy-page .instructions li strong {
+  color: var(--accent);
+  background: rgba(34, 211, 166, 0.08);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.82em;
+  word-break: break-all;
+}
+.deploy-page .instructions li strong { background: none; padding: 0; }
+
+/* Copy button — accent pill */
+.deploy-page .copy-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #05070a;
+  box-shadow: 0 4px 14px rgba(34, 211, 166, 0.28);
+}
+.deploy-page .copy-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(34, 211, 166, 0.4); }
+
+/* Log viewer already dark; keep terminal look */
+.deploy-page .log-viewer {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--line);
+}
+
+/* Deploy progress line (result step) */
+.deploy-page .deploy-status-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+.deploy-page .deploy-status-icon {
+  width: 38px; height: 38px; flex-shrink: 0;
+  border-radius: 12px;
+  display: grid; place-items: center;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+}
+.deploy-page .deploy-status-text { flex: 1; min-width: 0; }
+.deploy-page .deploy-status-title { font-weight: 700; color: var(--text); font-size: 0.92rem; }
+.deploy-page .deploy-status-desc { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+.deploy-page .deploy-status-bar {
+  margin-top: 0.6rem; height: 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06); overflow: hidden;
+}
+.deploy-page .deploy-status-bar-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.5s ease;
+}
+
+/* Field sections */
+.deploy-page .field-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+}
+.deploy-page .field-section-icon {
+  color: var(--accent);
+}
+.deploy-page .field-section-title { color: var(--text); }
+
+/* Rent bonus card */
+.deploy-page .rent-bonus-card {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  border: 1px solid var(--accent-border);
+  background: rgba(34, 211, 166, 0.06);
+  border-radius: var(--radius-md);
+  padding: 0.95rem 1.1rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.deploy-page .rent-bonus-card:hover { border-color: var(--accent); background: rgba(34, 211, 166, 0.1); }
+.deploy-page .rent-bonus-card input[type="checkbox"] {
+  width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0;
+  accent-color: var(--accent); cursor: pointer;
+}
+.deploy-page .rent-bonus-copy { display: flex; flex-direction: column; gap: 3px; }
+.deploy-page .rent-bonus-copy strong { color: var(--text); font-size: 0.92rem; }
+.deploy-page .rent-bonus-copy span { color: var(--muted); font-size: 0.83rem; }
+.deploy-page .rent-bonus-copy b { color: var(--accent); }
+.deploy-page .rent-bonus-copy small { color: #6d7684; font-size: 0.75rem; }
+
+/* Preset preview */
+.deploy-page .preset-preview-wrap {
+  position: relative; margin: 0.9rem auto 0; max-width: 260px;
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.3); padding: 0.6rem; text-align: center;
+}
+.deploy-page .preset-preview-img { max-width: 100%; border-radius: 10px; transition: opacity 0.3s; }
+.deploy-page .preset-preview-img.loading { opacity: 0; }
+.deploy-page .preset-preview-img.loaded { opacity: 1; }
+.deploy-page .preset-preview-loading {
+  display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+  color: var(--muted); font-size: 0.82rem; padding: 1.5rem 0;
+}
+.deploy-page .preset-preview-label { margin-top: 0.4rem; font-size: 0.78rem; color: var(--muted); }
+
+/* Password toggle */
+.deploy-page .password-toggle { color: var(--muted); }
+
+/* Buttons: ensure primary/outline match Botable */
+.deploy-page .btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #05070a;
+  box-shadow: var(--shadow-accent);
+}
+.deploy-page .btn-outline {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid var(--line-strong);
+  color: var(--text);
+}
+.deploy-page .btn-outline:hover { border-color: var(--accent); background: rgba(34, 211, 166, 0.08); }

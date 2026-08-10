@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import Navbar from '../components/Navbar'
-import FloatingParticles from '../components/FloatingParticles'
 import Hero from '../components/Hero'
-import Features, { StatsBar } from '../components/Features'
+import Features from '../components/Features'
+import AdminShowcase from '../components/AdminShowcase'
 import HowItWorks from '../components/HowItWorks'
+import Pricing from '../components/Pricing'
 import CTA from '../components/CTA'
 import Footer from '../components/Footer'
 
@@ -18,15 +19,15 @@ export default function Landing() {
     }, [])
 
     return (
-        <>
-            <FloatingParticles />
-            <Navbar />
+        <div className="landing-dark">
+            <Navbar telegramLink={telegramLink} />
             <Hero telegramLink={telegramLink} />
-            <StatsBar />
             <Features />
+            <AdminShowcase />
             <HowItWorks />
+            <Pricing telegramLink={telegramLink} />
             <CTA telegramLink={telegramLink} />
-            <Footer />
-        </>
+            <Footer telegramLink={telegramLink} />
+        </div>
     )
 }

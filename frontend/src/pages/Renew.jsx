@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { KeyRound, RefreshCw, CheckCircle, Clock, CreditCard, Home, X, QrCode, Loader } from 'lucide-react'
+import { KeyRound, RefreshCw, CheckCircle, Clock, CreditCard, Home, X, QrCode, Loader, AlertCircle, ClipboardList, Wallet, User, Store, Activity, CalendarClock } from 'lucide-react'
 import Navbar from '../components/Navbar'
+import '../deploy-dark.css'
+import '../renew-dark.css'
 
 const fmtRp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
 
@@ -131,7 +133,7 @@ export default function Renew() {
     const closeSuccess = () => setSuccessView(null)
 
     return (
-        <>
+        <div className="landing-dark">
             <Navbar />
 
             {/* ==================== SUCCESS FULLSCREEN VIEW ==================== */}
@@ -151,7 +153,7 @@ export default function Renew() {
                         >
                             <CheckCircle size={56} />
                         </motion.div>
-                        <h2>Pembayaran Berhasil! 🎉</h2>
+                        <h2>Pembayaran Berhasil!</h2>
                         <p>License kamu berhasil diperpanjang.</p>
                         <div className="success-details">
                             <div className="success-row"><span>Durasi</span><strong>+{successView.days} hari</strong></div>
@@ -175,7 +177,7 @@ export default function Renew() {
                             <p>Cek status & perpanjang masa aktif bot kamu. Pembayaran via QRIS.</p>
                         </div>
 
-                        {error && <div className="alert alert-error">❌ {error}</div>}
+                        {error && <div className="alert alert-error"><AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} /> {error}</div>}
 
                         {/* Step A: Check license */}
                         <div className="form-group">
@@ -197,10 +199,10 @@ export default function Renew() {
                         {/* Step B: License info */}
                         {info && (
                             <div className="result-card" style={{ marginTop: '1.25rem' }}>
-                                <h3>📋 Detail Lisensi</h3>
+                                <h3><ClipboardList size={17} /> Detail Lisensi</h3>
                                 <div className="result-item"><span className="result-label">Buyer</span><span className="result-value">{info.license.buyer_name}</span></div>
                                 <div className="result-item"><span className="result-label">Akses</span><span className="result-value">{info.license.tier === 'chat' ? 'Chat Bot saja' : 'Web Admin + Chat Bot'}</span></div>
-                                <div className="result-item"><span className="result-label">Status</span><span className="result-value">{info.license.running ? '🟢 Aktif' : '⚪ Tidak deploy'}</span></div>
+                                <div className="result-item"><span className="result-label">Status</span><span className="result-value" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: info.license.running ? 'var(--success)' : 'var(--muted)', boxShadow: info.license.running ? '0 0 8px var(--success)' : 'none' }} />{info.license.running ? 'Aktif' : 'Tidak deploy'}</span></div>
                                 <div className="result-item"><span className="result-label">Store</span><span className="result-value">{info.license.store_name || '-'}</span></div>
                                 <div className="result-item"><span className="result-label">Expired</span><span className="result-value">{info.license.expires_at ? new Date(info.license.expires_at).toLocaleDateString('id-ID') : '-'}</span></div>
                                 <div className="result-item">
@@ -215,7 +217,7 @@ export default function Renew() {
                         {/* Step C: Choose duration + pay */}
                         {info && info.license.running && (
                             <div className="result-card" style={{ marginTop: '1rem' }}>
-                                <h3>💳 Perpanjang Masa Aktif</h3>
+                                <h3><Wallet size={17} /> Perpanjang Masa Aktif</h3>
                                 <p style={{ marginBottom: '0.9rem', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
                                     Harga: {fmtRp(pricePerMonth)}/bulan · {fmtRp(pricePerDay)}/hari
                                 </p>
@@ -274,7 +276,7 @@ export default function Renew() {
             {payModal && (
                 <div className="modal-overlay" onClick={payModal.status !== 'paid' ? closeModal : undefined}>
                     <div className="modal-box" onClick={e => e.stopPropagation()}>
-                        <button className="modal-close" onClick={closeIfPaid} aria-label="Tutup">✕</button>
+                        <button className="modal-close" onClick={closeIfPaid} aria-label="Tutup"><X size={18} /></button>
 
                         <div className="modal-title">
                             <QrCode size={20} color="var(--accent)" />
@@ -284,7 +286,7 @@ export default function Renew() {
                         {payModal.status === 'paid' ? (
                             <div className="pay-status-success" style={{ marginBottom: '1rem' }}>
                                 <CheckCircle size={28} style={{ marginBottom: '0.4rem' }} />
-                                <div style={{ fontSize: '1.05rem', fontWeight: 800 }}>Pembayaran Berhasil! 🎉</div>
+                                <div style={{ fontSize: '1.05rem', fontWeight: 800 }}>Pembayaran Berhasil!</div>
                                 <div style={{ fontSize: '0.85rem', fontWeight: 400, marginTop: '0.4rem' }}>
                                     Masa aktif license diperpanjang.
                                 </div>
@@ -296,7 +298,7 @@ export default function Renew() {
                             </div>
                         ) : payModal.status === 'pending' || payModal.status === 'expired' ? (
                             <div className="pay-status-pending" style={{ marginBottom: '1rem' }}>
-                                {payModal.status === 'expired' ? '⏰ Transaksi kadaluarsa.' : '⏳ Pembayaran belum terdeteksi.'}
+                                {payModal.status === 'expired' ? <><Clock size={15} style={{ verticalAlign: '-3px', marginRight: 5 }} />Transaksi kadaluarsa.</> : <><Loader size={15} style={{ verticalAlign: '-3px', marginRight: 5 }} />Pembayaran belum terdeteksi.</>}
                                 {payModal.message ? <div style={{ fontSize: '0.8rem', fontWeight: 400, marginTop: '0.3rem' }}>{payModal.message}</div> : null}
                             </div>
                         ) : null}
@@ -343,6 +345,6 @@ export default function Renew() {
                     </div>
                 </div>
             )}
-        </>
+        </div>
     )
 }

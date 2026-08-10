@@ -1,34 +1,20 @@
-import { Link } from 'react-router-dom'
-import { Rocket, Send } from 'lucide-react'
-import { motion } from 'framer-motion'
+import Reveal from './Reveal'
 
+// Dark orbital CTA — Order via Telegram (telegramLink prop preserved)
 export default function CTA({ telegramLink }) {
     return (
-        <section className="cta-section">
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-            >
-                <h2>Siap Mulai <span className="gradient-text">Jualan?</span></h2>
-                <p>Dapetin bot premium kamu sekarang. Setup cuma 5 menit.</p>
-                <div className="cta-buttons">
-                    <a
-                        href={telegramLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-primary btn-lg"
-                    >
-                        <Send size={20} />
+        <section className="ld-sec" id="faq">
+            <div className="wrap ld-cta-wrap">
+                <Reveal className="ld-cta-card">
+                    <div className="ld-cta-orbit"><div className="ld-circle ld-cc1" /><div className="ld-circle ld-cc2" /></div>
+                    <h2>Siap punya toko digital sendiri di Telegram?</h2>
+                    <p>Deploy dalam hitungan menit. Bayar QRIS otomatis, kelola dari panel admin.</p>
+                    <a className="ld-btn ld-btn-accent" href={telegramLink} target="_blank" rel="noopener noreferrer">
+                        <svg className="icon-sm" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z" /></svg>
                         Order via Telegram
                     </a>
-                    <Link to="/deploy" className="btn btn-outline btn-lg">
-                        <Rocket size={20} />
-                        Deploy Bot
-                    </Link>
-                </div>
-            </motion.div>
+                </Reveal>
+            </div>
         </section>
     )
 }

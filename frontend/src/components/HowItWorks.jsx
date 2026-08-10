@@ -1,54 +1,35 @@
-import { motion } from 'framer-motion'
+import Reveal from './Reveal'
 
-const steps = [
-    {
-        num: '1',
-        title: 'Order & Dapatkan License',
-        desc: 'Chat kami di Telegram, pilih paket, bayar, dan terima license key unik 32 karakter.'
-    },
-    {
-        num: '2',
-        title: 'Deploy via Web',
-        desc: 'Buka halaman deploy, masukkan license key, isi konfigurasi bot, upload banner, klik Deploy.'
-    },
-    {
-        num: '3',
-        title: 'Profit! 🎉',
-        desc: 'Bot langsung aktif. Paste webhook URL ke PaKasir, mulai jualan. Auto order, auto payment, auto delivery.'
-    }
-]
-
+// Dark 3-step "how it works" with animated connector
 export default function HowItWorks() {
     return (
-        <section className="section section-alt" id="how">
-            <motion.div
-                className="section-title"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-            >
-                <h2>Cara <span className="gradient-text">Mulai</span></h2>
-                <p>3 langkah sederhana untuk punya bot jualan sendiri.</p>
-            </motion.div>
-
-            <div className="steps-wrap">
-                {steps.map((s, i) => (
-                    <motion.div
-                        className="step-card"
-                        key={i}
-                        initial={{ opacity: 0, x: -24 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: i * 0.15, duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                    >
-                        <div className="step-num">{s.num}</div>
-                        <div>
-                            <h3>{s.title}</h3>
-                            <p>{s.desc}</p>
-                        </div>
-                    </motion.div>
-                ))}
+        <section className="ld-sec" id="cara">
+            <div className="wrap">
+                <Reveal className="ld-sec-head">
+                    <div className="ld-eyebrow">Cara Kerja</div>
+                    <h2>Tiga langkah, tokomu langsung jalan.</h2>
+                </Reveal>
+                <div className="ld-steps">
+                    <div className="ld-connector" />
+                    <Reveal className="ld-step">
+                        <div className="num">01</div>
+                        <div className="sic"><svg className="icon" viewBox="0 0 24 24"><path d="M3 11l19-9-9 19-2-8z" /></svg></div>
+                        <h3>Order via Telegram</h3>
+                        <p>Pilih paket, chat admin. Bot &amp; panel disiapkan untukmu.</p>
+                    </Reveal>
+                    <Reveal className="ld-step">
+                        <div className="num">02</div>
+                        <div className="sic"><svg className="icon" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg></div>
+                        <h3>Konfigurasi Toko</h3>
+                        <p>Isi produk, harga &amp; QRIS lewat panel admin yang intuitif.</p>
+                    </Reveal>
+                    <Reveal className="ld-step">
+                        <div className="num">03</div>
+                        <div className="sic"><svg className="icon" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><path d="M22 4 12 14.01l-3-3" /></svg></div>
+                        <h3>Mulai Jualan</h3>
+                        <p>Bot online, pembayaran otomatis, order masuk sendiri.</p>
+                    </Reveal>
+                </div>
             </div>
         </section>
     )

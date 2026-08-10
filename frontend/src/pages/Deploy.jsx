@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { KeyRound, Settings, CheckCircle, Copy, ArrowLeft, Rocket, Home } from 'lucide-react'
+import { KeyRound, Settings, CheckCircle, Copy, ArrowLeft, Rocket, Home, Bot, Lock, CreditCard, Palette, Gift, LifeBuoy, Eye, EyeOff, User, Server, FileText, ListChecks, AlertCircle } from 'lucide-react'
 import Navbar from '../components/Navbar'
+import '../deploy-dark.css'
 
 // ==================== STEP INDICATOR ====================
 function StepIndicator({ current }) {
@@ -64,7 +65,7 @@ function LicenseStep({ onValid }) {
                 <p>Masukkan license key yang kamu terima setelah pembelian.</p>
             </div>
 
-            {error && <div className="alert alert-error">❌ {error}</div>}
+            {error && <div className="alert alert-error"><AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} /> {error}</div>}
 
             <div className="form-group">
                 <label className="form-label">License Key *</label>
@@ -82,7 +83,7 @@ function LicenseStep({ onValid }) {
 
             {info && (
                 <div className="alert" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '0.75rem' }}>
-                    <div><strong>👤 {info.buyer}</strong></div>
+                    <div><strong><User size={15} style={{ verticalAlign: '-2px', marginRight: 5, color: 'var(--accent)' }} />{info.buyer}</strong></div>
                     <div>Akses: {info.tier === 'chat' ? 'Chat Bot saja' : 'Web Admin + Chat Bot'}</div>
                 </div>
             )}
@@ -293,9 +294,9 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </div>
             </div>
 
-            {error && <div className="alert alert-error">❌ {error}</div>}
+            {error && <div className="alert alert-error"><AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} /> {error}</div>}
 
-            <FieldSection icon="🤖" title="Identitas Bot" desc="Koneksi ke Telegram & identitas toko">
+            <FieldSection icon={<Bot size={20} />} title="Identitas Bot" desc="Koneksi ke Telegram & identitas toko">
                 <div className="form-group">
                     <label className="form-label">Bot Token *</label>
                     <input className="form-input" placeholder="1234567890:ABCDefGHIJKLMNopqrstUVWXyz" value={form.botToken} onChange={set('botToken')} />
@@ -321,7 +322,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             </FieldSection>
 
             {tier !== 'chat' && (
-                <FieldSection icon="🔐" title="Admin Panel" desc="Akses dashboard web /admin">
+                <FieldSection icon={<Lock size={20} />} title="Admin Panel" desc="Akses dashboard web /admin">
                     <div className="form-group">
                         <label className="form-label">Admin Panel Password *</label>
                         <div className="password-wrap">
@@ -338,7 +339,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                                 onClick={() => setShowAdminPass(v => !v)}
                                 aria-label={showAdminPass ? 'Sembunyikan password' : 'Tampilkan password'}
                             >
-                                {showAdminPass ? '🙈' : '👁️'}
+                                {showAdminPass ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
                         </div>
                         <span className="form-hint">Dipakai login di {`${window.location.origin}/admin`} setelah deploy</span>
@@ -346,7 +347,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </FieldSection>
             )}
 
-            <FieldSection icon="💳" title="Payment Gateway" desc="Pilih 1 gateway QRIS (bisa ditambah dari Admin Panel nanti)">
+            <FieldSection icon={<CreditCard size={20} />} title="Payment Gateway" desc="Pilih 1 gateway QRIS (bisa ditambah dari Admin Panel nanti)">
                 <div className="form-group">
                     <label className="form-label">Payment Gateway *</label>
                     <select className="form-input" value={provider} onChange={changeProvider}>
@@ -459,7 +460,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
 
             </FieldSection>
 
-            <FieldSection icon="🎨" title="Tampilan" desc="Theme QRIS & banner toko">
+            <FieldSection icon={<Palette size={20} />} title="Tampilan" desc="Theme QRIS & banner toko">
                 <div className="form-group">
                     <label className="form-label">Theme QRIS *</label>
                     {qrisPresets.length === 0 ? (
@@ -532,7 +533,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </div>
             </FieldSection>
 
-            <FieldSection icon="◇" title="Bonus Sewa Bot" desc="Tawaran opsional untuk masa aktif deployment pertama">
+            <FieldSection icon={<Gift size={20} />} title="Bonus Sewa Bot" desc="Tawaran opsional untuk masa aktif deployment pertama">
                 <label className="rent-bonus-card">
                     <input
                         type="checkbox"
@@ -547,7 +548,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
                 </label>
             </FieldSection>
 
-            <FieldSection icon="🛟" title="Support" desc="Link kontak bantuan untuk buyer (minimal 1 wajib)">
+            <FieldSection icon={<LifeBuoy size={20} />} title="Support" desc="Link kontak bantuan untuk buyer (minimal 1 wajib)">
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Support Telegram URL</label>
@@ -632,7 +633,7 @@ function ResultStep({ data, licenseKey, tier }) {
             </div>
 
             <div className="result-card">
-                <h3>🚀 Status Deployment</h3>
+                <h3><Rocket size={17} /> Status Deployment</h3>
                 {phase < deploySteps.length ? (
                     <div className="deploy-status-line">
                         <span className="deploy-status-icon">
@@ -648,14 +649,14 @@ function ResultStep({ data, licenseKey, tier }) {
                     </div>
                 ) : (
                     <div className="pay-status-success">
-                        ✅ Bot berhasil di-deploy dan berjalan!
+                        <CheckCircle size={18} style={{ verticalAlign: '-4px', marginRight: 6 }} />Bot berhasil di-deploy dan berjalan!
                     </div>
                 )}
             </div>
 
             <div className="result-card">
-                <h3>📋 Detail Deployment</h3>
-                <div className="result-item"><span className="result-label">Status</span><span className="result-value" style={{ color: 'var(--success)' }}>🟢 Running</span></div>
+                <h3><Server size={17} /> Detail Deployment</h3>
+                <div className="result-item"><span className="result-label">Status</span><span className="result-value" style={{ color: 'var(--success)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 8px var(--success)' }} />Running</span></div>
                 <div className="result-item"><span className="result-label">Port</span><span className="result-value">{data.port}</span></div>
                 <div className="result-item"><span className="result-label">Masa Aktif Awal</span><span className="result-value">{data.baseDays} hari{data.bonusDays > 0 ? ` + ${data.bonusDays} hari bonus` : ''} = <strong>{data.totalDays} hari</strong></span></div>
                 {data.bonusDays > 0 && <div className="result-item"><span className="result-label">Bonus Sewa Bot</span><span className="result-value" style={{ color: 'var(--success)' }}>✓ Aktif (+14 hari)</span></div>}
@@ -683,13 +684,13 @@ function ResultStep({ data, licenseKey, tier }) {
 
             {logs && (
                 <div className="result-card">
-                    <h3>📄 Log Ringkas</h3>
+                    <h3><FileText size={17} /> Log Ringkas</h3>
                     <div className="log-viewer" ref={logRef} style={{ minHeight: 80, maxHeight: 160 }}>{logs}</div>
                 </div>
             )}
 
             <div className="result-card">
-                <h3>📝 Langkah Selanjutnya</h3>
+                <h3><ListChecks size={17} /> Langkah Selanjutnya</h3>
                 <ol className="instructions">
                     {!isChatOnly && data.adminUrl && (
                         <li>Buka panel admin: <code>{data.adminUrl}</code> (password yang kamu isi)</li>
@@ -733,7 +734,7 @@ export default function Deploy() {
     }
 
     return (
-        <>
+        <div className="landing-dark">
             <Navbar />
             <div className="deploy-page">
                 <div className="deploy-container">
@@ -746,6 +747,6 @@ export default function Deploy() {
                     </AnimatePresence>
                 </div>
             </div>
-        </>
+        </div>
     )
 }

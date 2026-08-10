@@ -173,7 +173,7 @@ export default function Renew() {
                 <div className="deploy-container">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
                         <div className="deploy-header">
-                            <h1><RefreshCw size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem', color: 'var(--accent)' }} />Perpanjang License</h1>
+                            <h1><span className="page-title-icon"><RefreshCw size={22} /></span><span>Perpanjang License</span></h1>
                             <p>Cek status & perpanjang masa aktif bot kamu. Pembayaran via QRIS.</p>
                         </div>
 
@@ -298,7 +298,9 @@ export default function Renew() {
                             </div>
                         ) : payModal.status === 'pending' || payModal.status === 'expired' ? (
                             <div className="pay-status-pending" style={{ marginBottom: '1rem' }}>
-                                {payModal.status === 'expired' ? <><Clock size={15} style={{ verticalAlign: '-3px', marginRight: 5 }} />Transaksi kadaluarsa.</> : <><Loader size={15} style={{ verticalAlign: '-3px', marginRight: 5 }} />Pembayaran belum terdeteksi.</>}
+                                <div className="inline-icon-text">
+                                    {payModal.status === 'expired' ? <><Clock size={15} />Transaksi kadaluarsa.</> : <><Loader size={15} />Pembayaran belum terdeteksi.</>}
+                                </div>
                                 {payModal.message ? <div style={{ fontSize: '0.8rem', fontWeight: 400, marginTop: '0.3rem' }}>{payModal.message}</div> : null}
                             </div>
                         ) : null}

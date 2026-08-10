@@ -11,8 +11,8 @@
   -webkit-backdrop-filter: blur(10px);
 }
 .success-box {
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, #0d2232, #081722);
+  border: 1px solid rgba(75,145,183,.26);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
 }
 .success-box h2 { color: var(--text); letter-spacing: -0.02em; }
@@ -23,8 +23,8 @@
   border: 2px solid var(--accent-border);
 }
 .success-details {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--line);
+  background: #081725;
+  border: 1px solid rgba(75,145,183,.2);
   border-radius: var(--radius-md);
   padding: 0.9rem 1.1rem;
   margin: 0.5rem 0 0.25rem;
@@ -41,11 +41,12 @@
 /* Payment modal */
 .modal-overlay { background: rgba(4, 6, 12, 0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .modal-box {
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, #0d2232, #081722);
+  border: 1px solid rgba(75,145,183,.26);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
 }
-.modal-title { color: var(--text); }
+.modal-title { color: var(--text); display:flex; align-items:center; gap:.6rem; line-height:1.2; }
+.modal-title svg { flex:0 0 auto; }
 .modal-close { border: 1px solid var(--line-strong); color: var(--muted); background: rgba(255, 255, 255, 0.03); }
 .modal-close:hover { background: var(--error-bg); color: var(--error); border-color: rgba(239, 68, 68, 0.4); }
 
@@ -58,3 +59,13 @@
 .pay-total .value { color: var(--accent); }
 .pay-status-success { background: var(--success-bg); border: 1px solid var(--accent-border); color: var(--accent); }
 .pay-status-pending { background: rgba(232, 177, 61, 0.1); border: 1px solid rgba(232, 177, 61, 0.32); color: var(--warning); }
+
+.duration-option { background:#081725; border-color:rgba(75,145,183,.22); }
+.duration-option:hover { background:#0b2030; border-color:rgba(34,211,166,.38); }
+.duration-option.active { background:rgba(34,211,166,.1); border-color:var(--accent); }
+
+@media (max-width: 640px) {
+  .modal-title { padding-right:2rem; }
+  .success-row, .pay-row { gap:.75rem; }
+  .success-row strong, .pay-row .value { text-align:right; overflow-wrap:anywhere; }
+}

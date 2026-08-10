@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { LogoIcon } from './Logo'
 
-export default function Footer({ telegramLink = 'https://t.me/vitacimin' }) {
+export default function Footer({ telegramLink = 'https://t.me/GREEBEL' }) {
     return (
         <footer className="ld-footer">
             <div className="wrap ld-foot-inner">

@@ -5,16 +5,18 @@
 /* Page background: subtle orbital glow like the landing hero */
 .deploy-page {
   position: relative;
+  color-scheme: dark;
   background:
-    radial-gradient(720px 420px at 12% -6%, rgba(34, 211, 166, 0.12), transparent 60%),
-    radial-gradient(680px 460px at 92% 4%, rgba(109, 114, 255, 0.12), transparent 62%);
+    radial-gradient(760px 440px at 8% -5%, rgba(34, 211, 166, 0.16), transparent 60%),
+    radial-gradient(720px 500px at 96% 0%, rgba(39, 121, 181, 0.16), transparent 62%),
+    linear-gradient(180deg, #07111b 0%, #08121c 45%, #061019 100%);
   overflow-x: hidden;
 }
 
 /* Glass card container */
 .deploy-page .deploy-container {
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
-  border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, rgba(13, 29, 43, .97), rgba(8, 21, 32, .98));
+  border: 1px solid rgba(75, 145, 183, .24);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
 }
 
@@ -26,7 +28,28 @@
 .deploy-page .deploy-header h1 {
   color: var(--text);
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .72rem;
+  line-height: 1.15;
 }
+.deploy-page .page-title-icon {
+  width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 40px;
+  color: #5edbc0;
+  background: linear-gradient(145deg, rgba(34,211,166,.15), rgba(39,121,181,.13));
+  border: 1px solid rgba(76,189,175,.27);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 24px rgba(0,0,0,.22);
+}
+.deploy-page .page-title-icon.success { color: var(--success); }
+.deploy-page .page-title-icon svg { display: block; }
+.deploy-page .inline-icon-text { display:inline-flex; align-items:center; gap:.4rem; line-height:1.3; }
+.deploy-page .inline-icon-text svg { flex:0 0 auto; }
 
 /* Step dots */
 .deploy-page .step-dot {
@@ -51,15 +74,15 @@
 .deploy-page .form-input,
 .deploy-page select.form-input,
 .deploy-page textarea.form-input {
-  background: rgba(0, 0, 0, 0.32);
-  border: 1.5px solid var(--line);
+  background: #081725;
+  border: 1.5px solid rgba(76, 134, 166, .24);
   color: var(--text);
   backdrop-filter: none;
 }
 .deploy-page .form-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(34, 211, 166, 0.18);
-  background: rgba(0, 0, 0, 0.42);
+  background: #0a1b29;
 }
 .deploy-page .form-input::placeholder { color: #6d7684; }
 .deploy-page select.form-input option { background: var(--panel-2); color: var(--text); }
@@ -83,12 +106,13 @@
 
 /* Result / info cards */
 .deploy-page .result-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(14,34,49,.9), rgba(9,24,36,.94));
+  border: 1px solid rgba(75,145,183,.22);
   box-shadow: var(--shadow-sm);
   backdrop-filter: none;
 }
-.deploy-page .result-card h3 { color: var(--text); }
+.deploy-page .result-card h3 { color: var(--text); display:flex; align-items:center; gap:.55rem; line-height:1.25; }
+.deploy-page .result-card h3 svg { flex:0 0 auto; color:var(--accent); }
 .deploy-page .result-item { border-bottom: 1px solid var(--line); }
 .deploy-page .result-value { color: var(--text); }
 .deploy-page .instructions li { color: var(--muted); }
@@ -146,13 +170,28 @@
 
 /* Field sections */
 .deploy-page .field-section {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(14,34,49,.86), rgba(9,23,35,.9));
+  border: 1px solid rgba(74, 141, 178, .2);
 }
+.deploy-page .field-section-head { display:flex; align-items:center; gap:.85rem; }
 .deploy-page .field-section-icon {
-  color: var(--accent);
+  width:38px; height:38px; flex:0 0 38px; display:grid; place-items:center;
+  color: #5edbc0; border-radius:11px;
+  background:rgba(34,211,166,.09); border:1px solid rgba(34,211,166,.2);
 }
-.deploy-page .field-section-title { color: var(--text); }
+.deploy-page .field-section-icon svg { display:block; }
+.deploy-page .field-section-title { color: var(--text); line-height:1.25; }
+.deploy-page .field-section-desc { line-height:1.4; }
+
+@media (max-width: 640px) {
+  .deploy-page { padding-top: 5.4rem; }
+  .deploy-page .deploy-header h1 { font-size: 1.28rem; gap:.55rem; }
+  .deploy-page .page-title-icon { width:36px; height:36px; flex-basis:36px; border-radius:10px; }
+  .deploy-page .field-section-head { align-items:flex-start; }
+  .deploy-page .field-section-icon { width:34px; height:34px; flex-basis:34px; }
+  .deploy-page .result-item { align-items:flex-start; gap:.6rem; }
+  .deploy-page .result-value { text-align:right; overflow-wrap:anywhere; }
+}
 
 /* Rent bonus card */
 .deploy-page .rent-bonus-card {

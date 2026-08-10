@@ -9,7 +9,7 @@ import CTA from '../components/CTA'
 import Footer from '../components/Footer'
 
 export default function Landing() {
-    const [telegramLink, setTelegramLink] = useState('https://t.me/Lumminese')
+    const [telegramLink, setTelegramLink] = useState('https://t.me/GREEBEL')
 
     useEffect(() => {
         fetch('/api/config')

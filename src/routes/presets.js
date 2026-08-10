@@ -51,7 +51,7 @@ router.get('/api/qris-preset-preview/:id', (req, res) => {
  */
 router.get('/api/config', (req, res) => {
     res.json({
-        telegramLink: process.env.TELEGRAM_LINK || 'https://t.me/yuriot'
+        telegramLink: process.env.TELEGRAM_LINK || 'https://t.me/GREEBEL'
     });
 });
 

@@ -61,7 +61,7 @@ function LicenseStep({ onValid }) {
             transition={{ duration: 0.35 }}
         >
             <div className="deploy-header">
-                <h1><KeyRound size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem' }} />License Key</h1>
+                <h1><span className="page-title-icon"><KeyRound size={22} /></span><span>License Key</span></h1>
                 <p>Masukkan license key yang kamu terima setelah pembelian.</p>
             </div>
 
@@ -83,7 +83,7 @@ function LicenseStep({ onValid }) {
 
             {info && (
                 <div className="alert" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8, padding: '0.75rem 1rem', marginBottom: '0.75rem' }}>
-                    <div><strong><User size={15} style={{ verticalAlign: '-2px', marginRight: 5, color: 'var(--accent)' }} />{info.buyer}</strong></div>
+                    <div><strong className="inline-icon-text"><User size={15} />{info.buyer}</strong></div>
                     <div>Akses: {info.tier === 'chat' ? 'Chat Bot saja' : 'Web Admin + Chat Bot'}</div>
                 </div>
             )}
@@ -287,7 +287,7 @@ function ConfigStep({ licenseKey, tier, onDeploy }) {
             transition={{ duration: 0.35 }}
         >
             <div className="deploy-header">
-                <h1><Settings size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem' }} />Konfigurasi Bot</h1>
+                <h1><span className="page-title-icon"><Settings size={22} /></span><span>Konfigurasi Bot</span></h1>
                 <p>Isi data di bawah untuk setup bot kamu.</p>
                 <div className="alert" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 8, padding: '0.5rem 0.9rem', marginTop: '0.5rem', display: 'inline-block' }}>
                     {tier === 'chat' ? 'Akses: Chat Bot saja' : 'Akses: Web Admin + Chat Bot'}
@@ -598,11 +598,11 @@ function ResultStep({ data, licenseKey, tier }) {
     const isChatOnly = tier === 'chat'
 
     const deploySteps = [
-        { icon: '📦', title: 'Membuat container', desc: 'Menyiapkan environment bot...' },
-        { icon: '🔑', title: 'Mengatur credential', desc: 'Payment gateway + admin...' },
-        { icon: '🖼', title: 'Upload banner', desc: 'Banner toko disimpan...' },
-        { icon: '🚀', title: 'Menjalankan bot', desc: 'Bot mulai berjalan...' },
-        { icon: '✅', title: 'Selesai!', desc: 'Bot siap dipakai.' },
+        { title: 'Membuat container', desc: 'Menyiapkan environment bot...' },
+        { title: 'Mengatur credential', desc: 'Payment gateway + admin...' },
+        { title: 'Upload banner', desc: 'Banner toko disimpan...' },
+        { title: 'Menjalankan bot', desc: 'Bot mulai berjalan...' },
+        { title: 'Selesai!', desc: 'Bot siap dipakai.' },
     ]
 
     useEffect(() => {
@@ -628,7 +628,7 @@ function ResultStep({ data, licenseKey, tier }) {
             transition={{ duration: 0.4 }}
         >
             <div className="deploy-header">
-                <h1><CheckCircle size={24} style={{ verticalAlign: '-4px', marginRight: '0.5rem', color: 'var(--success)' }} />Deploy Berhasil!</h1>
+                <h1><span className="page-title-icon success"><CheckCircle size={22} /></span><span>Deploy Berhasil!</span></h1>
                 <p>Bot kamu sudah aktif dan berjalan.</p>
             </div>
 
@@ -648,8 +648,8 @@ function ResultStep({ data, licenseKey, tier }) {
                         </div>
                     </div>
                 ) : (
-                    <div className="pay-status-success">
-                        <CheckCircle size={18} style={{ verticalAlign: '-4px', marginRight: 6 }} />Bot berhasil di-deploy dan berjalan!
+                    <div className="pay-status-success inline-icon-text">
+                        <CheckCircle size={18} />Bot berhasil di-deploy dan berjalan!
                     </div>
                 )}
             </div>
@@ -704,7 +704,7 @@ function ResultStep({ data, licenseKey, tier }) {
                     ) : (
                         <li>Kelola produk & stok lewat Admin Bot di Telegram (chat)</li>
                     )}
-                    <li>Bot sudah siap! 🎉 Mulai jualan sekarang</li>
+                    <li>Bot sudah siap. Mulai jualan sekarang.</li>
                 </ol>
             </div>
 

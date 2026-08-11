@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Lock, LogIn, ShieldCheck, Home } from 'lucide-react'
+import { LogIn, ShieldCheck, Home, AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { LogoIcon } from '../components/Logo'
+import '../admin-dark.css'
 
 export default function AdminLogin({ onLogin }) {
     const [password, setPassword] = useState('')
@@ -42,10 +43,10 @@ export default function AdminLogin({ onLogin }) {
                 <div className="admin-login-logo">
                     <LogoIcon size={48} />
                 </div>
-                <h1><ShieldCheck size={22} style={{ verticalAlign: '-4px', marginRight: '0.4rem', color: 'var(--accent)' }} />Admin Panel</h1>
+                <h1><ShieldCheck size={22} />Admin Panel</h1>
                 <p className="admin-login-sub">Kelola license & deployment bot</p>
 
-                {error && <div className="alert alert-error">❌ {error}</div>}
+                {error && <div className="alert alert-error" style={{ display: 'flex', alignItems: 'center', gap: '.45rem' }}><AlertCircle size={16} />{error}</div>}
 
                 <form onSubmit={submit}>
                     <div className="form-group">

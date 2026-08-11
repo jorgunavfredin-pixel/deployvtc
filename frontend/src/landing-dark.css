@@ -43,7 +43,7 @@
 .ld-nav-action { min-height: 38px; }
 
 /* ---------- HERO ---------- */
-.ld-hero { position: relative; padding: 72px 0 48px; overflow: hidden; }
+.ld-hero { position: relative; padding: 118px 0 48px; overflow: hidden; }
 .ld-orbit { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .ld-circle { position: absolute; border-radius: 50%; filter: blur(90px); mix-blend-mode: screen; opacity: .8; will-change: transform; }
 .ld-c1 { width: 560px; height: 560px; background: radial-gradient(circle, rgba(34, 211, 166, .55), transparent 68%); top: -160px; left: -60px; animation: ld-drift1 12s ease-in-out infinite; }

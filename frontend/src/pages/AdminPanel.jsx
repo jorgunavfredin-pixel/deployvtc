@@ -8,6 +8,7 @@ import {
     Store, Save, Copy, AlertCircle, Ban
 } from 'lucide-react'
 import { LogoIcon } from '../components/Logo'
+import '../admin-dark.css'
 
 const fmtRp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
 const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString('id-ID') : '-'
@@ -293,10 +294,10 @@ export default function AdminPanel({ onLogout }) {
                 </div>
                 <div className="admin-top-actions">
                     <button className="btn btn-outline btn-sm" onClick={() => { loadDashboard(); loadDeployments(); notify('Data diperbarui') }} title="Refresh data">
-                        <RefreshCw size={14} /> Refresh
+                        <RefreshCw size={14} /><span>Refresh</span>
                     </button>
                     <button className="btn btn-danger btn-sm" onClick={onLogout}>
-                        <LogOut size={14} /> Keluar
+                        <LogOut size={14} /><span>Keluar</span>
                     </button>
                 </div>
             </header>
@@ -645,10 +646,10 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onDelete,
                                             <span className="admin-mono" style={{ fontSize: '0.75rem' }}>{l.deployment.container_name} :{l.deployment.port}</span>
                                             <div style={{ marginTop: 3 }}>
                                                 {l.deployment.container_running
-                                                    ? <span className="badge badge-green">● Aktif</span>
+                                                    ? <span className="badge badge-green"><span className="badge-dot" />Aktif</span>
                                                     : !l.deployment.container_exists
-                                                        ? <span className="badge badge-gray" title="Baris masih ada di database, tapi container sudah tidak ada di Docker">⚠ Container hilang</span>
-                                                        : <span className="badge badge-amber">○ Mati ({l.deployment.container_state})</span>}
+                                                        ? <span className="badge badge-gray" title="Baris masih ada di database, tapi container sudah tidak ada di Docker"><AlertTriangle size={11} />Container hilang</span>
+                                                        : <span className="badge badge-amber"><span className="badge-dot" />Mati ({l.deployment.container_state})</span>}
                                             </div>
                                         </div>
                                     ) : <span className="admin-dim">—</span>}
@@ -1294,8 +1295,8 @@ function SystemLogsView({ logs, onRefresh }) {
         if (log.type === 'expiry') {
             return (
                 <div className="log-details">
-                    <span>Stopped: {d.stopped || 0} ✅</span>
-                    <span>Failed: {d.failed || 0} ❌</span>
+                    <span className="admin-inline-icon"><CheckCircle2 size={13} />Stopped: {d.stopped || 0}</span>
+                    <span className="admin-inline-icon"><AlertTriangle size={13} />Failed: {d.failed || 0}</span>
                     {d.details && d.details.length > 0 && (
                         <div className="log-list">
                             {d.details.map((item, i) => <div key={i}>{item}</div>)}
@@ -1308,11 +1309,11 @@ function SystemLogsView({ logs, onRefresh }) {
         if (log.type === 'backup') {
             return (
                 <div className="log-details">
-                    <span>📅 {d.date}</span>
+                    <span>Date: {d.date}</span>
                     <span>Total: {d.total}</span>
-                    <span>Success: {d.success} ✅</span>
-                    <span>Failed: {d.failed} ❌</span>
-                    <span style={{fontSize: '0.85em', color: '#888'}}>☁️ {d.remote_path}</span>
+                    <span className="admin-inline-icon"><CheckCircle2 size={13} />Success: {d.success}</span>
+                    <span className="admin-inline-icon"><AlertTriangle size={13} />Failed: {d.failed}</span>
+                    <span className="admin-dim">Remote: {d.remote_path}</span>
                     {d.details && d.details.length > 0 && (
                         <div className="log-list">
                             {d.details.map((item, i) => <div key={i}>{item}</div>)}
@@ -1322,7 +1323,7 @@ function SystemLogsView({ logs, onRefresh }) {
             )
         }
         
-        return <pre style={{fontSize: '0.85em', color: '#888'}}>{JSON.stringify(d, null, 2)}</pre>
+        return <pre className="admin-logs" style={{fontSize: '0.78rem', maxHeight: 240}}>{JSON.stringify(d, null, 2)}</pre>
     }
     
     return (
@@ -1340,10 +1341,10 @@ function SystemLogsView({ logs, onRefresh }) {
                         All ({logs.length})
                     </button>
                     <button className={`btn btn-sm ${filter === 'expiry' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFilter('expiry')}>
-                        ⏰ Expiry ({logs.filter(l => l.type === 'expiry').length})
+                        <Clock size={13} /> Expiry ({logs.filter(l => l.type === 'expiry').length})
                     </button>
                     <button className={`btn btn-sm ${filter === 'backup' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFilter('backup')}>
-                        💾 Backup ({logs.filter(l => l.type === 'backup').length})
+                        <Database size={13} /> Backup ({logs.filter(l => l.type === 'backup').length})
                     </button>
                 </div>
             </div>
@@ -1357,8 +1358,8 @@ function SystemLogsView({ logs, onRefresh }) {
                             <div className="audit-item" key={log.id} style={{display: 'block'}}>
                                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
                                     <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
-                                        <span className={`badge ${log.type === 'expiry' ? 'badge-yellow' : 'badge-blue'}`}>
-                                            {log.type === 'expiry' ? '⏰ Expiry' : '💾 Backup'}
+                                        <span className={`badge ${log.type === 'expiry' ? 'badge-amber' : 'badge-blue'}`}>
+                                            {log.type === 'expiry' ? <><Clock size={11} />Expiry</> : <><Database size={11} />Backup</>}
                                         </span>
                                         <span style={{fontWeight: 500}}>{log.message}</span>
                                     </div>

@@ -44,14 +44,33 @@
   background: linear-gradient(180deg, #0d2232, #081722);
   border: 1px solid rgba(75,145,183,.26);
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+  width: min(420px, calc(100vw - 28px));
+  padding: 1.25rem;
 }
 .modal-title { color: var(--text); display:flex; align-items:center; gap:.6rem; line-height:1.2; }
 .modal-title svg { flex:0 0 auto; }
 .modal-close { border: 1px solid var(--line-strong); color: var(--muted); background: rgba(255, 255, 255, 0.03); }
 .modal-close:hover { background: var(--error-bg); color: var(--error); border-color: rgba(239, 68, 68, 0.4); }
 
-/* QR image keeps white plate for scanability */
-.qr-image-wrap { border: 1px solid var(--line-strong); }
+/* QR keeps only the quiet-zone it needs; no full-width white empty panel. */
+.qr-image-wrap {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 1rem;
+  padding: 8px;
+  border: 1px solid rgba(94,219,192,.28);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(0,0,0,.35), 0 0 0 4px rgba(34,211,166,.05);
+}
+.qr-image-wrap img {
+  display: block;
+  width: min(250px, calc(100vw - 78px));
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 7px;
+}
 
 .pay-summary { background: var(--accent-bg); border: 1px solid var(--accent-border); }
 .pay-row .value { color: var(--text); }
@@ -60,12 +79,30 @@
 .pay-status-success { background: var(--success-bg); border: 1px solid var(--accent-border); color: var(--accent); }
 .pay-status-pending { background: rgba(232, 177, 61, 0.1); border: 1px solid rgba(232, 177, 61, 0.32); color: var(--warning); }
 
+.modal-box .pay-actions .btn-outline {
+  background: #0a1b29;
+  color: var(--text);
+  border-color: rgba(75,145,183,.28);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.modal-box .pay-actions .btn-outline:hover {
+  background: #0d2638;
+  border-color: rgba(34,211,166,.42);
+  color: #fff;
+}
+
 .duration-option { background:#081725; border-color:rgba(75,145,183,.22); }
 .duration-option:hover { background:#0b2030; border-color:rgba(34,211,166,.38); }
 .duration-option.active { background:rgba(34,211,166,.1); border-color:var(--accent); }
 
 @media (max-width: 640px) {
+  .modal-box { padding: 1rem; border-radius: 18px; }
   .modal-title { padding-right:2rem; }
+  .qr-image-wrap { padding: 7px; margin-bottom:.85rem; }
+  .qr-image-wrap img { width:min(230px, calc(100vw - 70px)); }
+  .pay-summary { padding:.75rem .85rem; margin-bottom:.8rem; }
+  .pay-actions { gap:.5rem; }
   .success-row, .pay-row { gap:.75rem; }
   .success-row strong, .pay-row .value { text-align:right; overflow-wrap:anywhere; }
 }

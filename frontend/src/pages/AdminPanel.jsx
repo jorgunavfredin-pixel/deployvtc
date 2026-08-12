@@ -5,7 +5,7 @@ import {
     Play, Square, RotateCw, Hammer, Trash2, Clock, ExternalLink,
     Server, Wallet, HardDrive, Loader2, Download, Upload, Database,
     Settings2, ScrollText, Search, ShieldCheck, X, CheckCircle2, AlertTriangle,
-    Store, Save, Copy, AlertCircle, Ban
+    Store, Save, Copy, AlertCircle, Ban, ChevronDown
 } from 'lucide-react'
 import { LogoIcon } from '../components/Logo'
 import '../admin-dark.css'
@@ -700,6 +700,7 @@ function LicensesView({ licenses, busy, onNew, onChangeTier, onRevoke, onDelete,
 function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImport, onConfig, notify }) {
     const [filter, setFilter] = useState('all')
     const [q, setQ] = useState('')
+    const [openActions, setOpenActions] = useState(null)
     const [backingUp, setBackingUp] = useState(false)
     const [rebuilding, setRebuilding] = useState(false)
     const [rebuildLog, setRebuildLog] = useState(null) // null=modal tutup; array=terbuka
@@ -809,7 +810,18 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                                     <td data-label="Uptime">{cs.running ? formatUptime(cs.uptime) : '-'}</td>
                                     <td data-label="Expired">{fmtDate(d.expires_at)}</td>
                                     <td data-label="Aksi">
-                                        <div className="admin-actions-grid">
+                                        <div className={`deployment-actions ${openActions === d.container_name ? 'is-open' : ''}`}>
+                                            <button
+                                                type="button"
+                                                className="deployment-actions-toggle"
+                                                aria-expanded={openActions === d.container_name}
+                                                aria-controls={`actions-${d.container_name}`}
+                                                onClick={() => setOpenActions(current => current === d.container_name ? null : d.container_name)}>
+                                                <Settings2 size={15} />
+                                                <span>Kelola Container</span>
+                                                <ChevronDown size={15} className="deployment-actions-chevron" />
+                                            </button>
+                                            <div className="admin-actions-grid" id={`actions-${d.container_name}`}>
                                             <button className="act-btn btn-success" disabled={busy === `start-${d.container_name}` || cs.running} onClick={() => onAction(d.container_name, 'start')} title="Start container"><Play size={14} /><span>Start</span></button>
                                             <button className="act-btn btn-danger" disabled={busy === `stop-${d.container_name}` || !cs.running} onClick={() => onAction(d.container_name, 'stop')} title="Stop container"><Square size={14} /><span>Stop</span></button>
                                             <button className="act-btn btn-outline" disabled={busy === `restart-${d.container_name}` || !cs.running} onClick={() => onAction(d.container_name, 'restart')} title="Restart container"><RotateCw size={14} /><span>Restart</span></button>
@@ -820,6 +832,7 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
                                             <a className="act-btn btn-outline" href={`/api/admin/deployments/${d.container_name}/backup`} target="_blank" rel="noreferrer" title="Backup database (store.db)"><Database size={14} /><span>Backup</span></a>
                                             <button className="act-btn btn-danger" disabled={busy === `rebuild-${d.container_name}`} onClick={() => onAction(d.container_name, 'rebuild')} title="Rebuild container dari image terbaru"><Hammer size={14} /><span>Rebuild</span></button>
                                             <button className="act-btn btn-danger" disabled={busy === `delete-${d.container_name}`} onClick={() => onAction(d.container_name, 'delete')} title="Hapus container permanen"><Trash2 size={14} /><span>Delete</span></button>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>

@@ -761,7 +761,7 @@ function DeploymentsView({ deployments, busy, onAction, onLogs, onTimer, onImpor
             )}
             <div className="admin-title-row">
                 <h2 className="admin-title">Deployments</h2>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div className="admin-title-actions">
                     <button className="btn btn-outline btn-sm" onClick={rebuildImage} disabled={rebuilding} title="git pull + docker build image store-bot (tidak menyentuh container yang jalan)">
                         <Hammer size={15} /> {rebuilding ? 'Building...' : 'Rebuild Image'}
                     </button>
@@ -1328,7 +1328,7 @@ function SystemLogsView({ logs, onRefresh }) {
     
     return (
         <div>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+            <div className="admin-page-head">
                 <h2 className="admin-title">System Logs</h2>
                 <button className="btn btn-outline btn-sm" onClick={onRefresh} title="Refresh logs">
                     <RotateCw size={14} /> Refresh
@@ -1336,7 +1336,7 @@ function SystemLogsView({ logs, onRefresh }) {
             </div>
             
             <div className="admin-card" style={{marginBottom: '1rem'}}>
-                <div style={{display: 'flex', gap: '0.5rem'}}>
+                <div className="admin-log-filters">
                     <button className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}`} onClick={() => setFilter('all')}>
                         All ({logs.length})
                     </button>
@@ -1356,8 +1356,8 @@ function SystemLogsView({ logs, onRefresh }) {
                     <div className="audit-list">
                         {filtered.map(log => (
                             <div className="audit-item" key={log.id} style={{display: 'block'}}>
-                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
-                                    <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
+                                <div className="admin-log-item-head">
+                                    <div className="admin-log-item-title">
                                         <span className={`badge ${log.type === 'expiry' ? 'badge-amber' : 'badge-blue'}`}>
                                             {log.type === 'expiry' ? <><Clock size={11} />Expiry</> : <><Database size={11} />Backup</>}
                                         </span>

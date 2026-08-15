@@ -2,7 +2,7 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const crypto = require('crypto');
 
-const dbFile = path.join(__dirname, '../deploy.db');
+const dbFile = process.env.DEPLOY_DB_FILE || path.join(__dirname, '../deploy.db');
 const db = new Database(dbFile);
 db.pragma('journal_mode = WAL');
 
@@ -90,6 +90,18 @@ for (const [column, sql] of [
 ]) {
   try { db.prepare(`SELECT ${column} FROM deployments LIMIT 1`).get(); }
   catch (_) { db.exec(sql); console.log(`[DB] Added ${column} to deployments`); }
+}
+
+// Metadata provider untuk renewal KlikQRIS. Migrasi idempoten untuk DB lama.
+for (const [column, sql] of [
+  ['total_amount', 'ALTER TABLE renewals ADD COLUMN total_amount INTEGER DEFAULT 0'],
+  ['provider_signature', 'ALTER TABLE renewals ADD COLUMN provider_signature TEXT'],
+  ['provider_expires_at', 'ALTER TABLE renewals ADD COLUMN provider_expires_at TEXT'],
+  ['provider_status', 'ALTER TABLE renewals ADD COLUMN provider_status TEXT'],
+  ['error_message', 'ALTER TABLE renewals ADD COLUMN error_message TEXT']
+]) {
+  try { db.prepare(`SELECT ${column} FROM renewals LIMIT 1`).get(); }
+  catch (_) { db.exec(sql); console.log(`[DB] Added ${column} to renewals`); }
 }
 
 // Migration: container hasil import lama semuanya memakai license_key 'IMPORTED'.
@@ -254,6 +266,13 @@ const getExpiredDeployments = () => {
     return db.prepare("SELECT * FROM deployments WHERE status = 'running' AND expires_at <= ?").all(now);
 };
 
+// Renewal bisa sudah committed lalu proses mati sebelum container direvive.
+// Hanya status 'expired' yang direkonsiliasi; container stopped manual tidak disentuh.
+const getRenewedExpiredDeployments = () => {
+    const now = new Date().toISOString();
+    return db.prepare("SELECT * FROM deployments WHERE status = 'expired' AND expires_at > ?").all(now);
+};
+
 const getExpiringSoon = (days = 3) => {
     const future = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     const now = new Date().toISOString();
@@ -281,6 +300,34 @@ const createRenewal = (licenseKey, orderId, amount, durationDays) => {
 const getRenewalByOrderId = (orderId) => {
     return db.prepare('SELECT * FROM renewals WHERE order_id = ?').get(orderId);
 };
+
+const updateRenewalProvider = (orderId, data = {}) => {
+    db.prepare(`UPDATE renewals SET
+        total_amount = CASE WHEN COALESCE(total_amount, 0) > 0 THEN total_amount ELSE ? END,
+        provider_signature = COALESCE(?, provider_signature),
+        provider_expires_at = COALESCE(?, provider_expires_at),
+        provider_status = ?, error_message = ?
+        WHERE order_id = ?`)
+        .run(
+            Number(data.total_amount || data.total_payment || data.amount || 0),
+            data.signature || null,
+            data.expired_at || null,
+            data.status || null,
+            data.error || null,
+            orderId
+        );
+    return getRenewalByOrderId(orderId);
+};
+
+const updateRenewalStatus = (orderId, status, error = null) => {
+    db.prepare('UPDATE renewals SET status = ?, provider_status = ?, error_message = ? WHERE order_id = ? AND status = ?')
+        .run(status, String(status).toUpperCase(), error, orderId, 'pending');
+    return getRenewalByOrderId(orderId);
+};
+
+const getPendingRenewals = (limit = 50) => db.prepare(
+    "SELECT * FROM renewals WHERE status = 'pending' ORDER BY created_at ASC LIMIT ?"
+).all(limit);
 
 const getRenewalsByLicense = (licenseKey) => {
     return db.prepare('SELECT * FROM renewals WHERE license_key = ? ORDER BY created_at DESC').all(licenseKey);
@@ -313,6 +360,41 @@ const extendDeploymentExpiry = (containerName, days) => {
     updateExpiresAt(containerName, newExpiry.toISOString());
     return { containerName, oldExpiresAt: dep.expires_at, newExpiresAt: newExpiry.toISOString() };
 };
+
+/**
+ * Claim + fulfill renewal dalam SATU transaksi SQLite.
+ * Webhook, poller, dan tombol manual boleh berlomba; tepat satu jalur yang
+ * mengubah pending → paid dan memperpanjang deployment.
+ */
+const fulfillRenewal = db.transaction((orderId, paidAt) => {
+    const renewal = getRenewalByOrderId(orderId);
+    if (!renewal) return { claimed: false, reason: 'not_found' };
+    if (renewal.status !== 'pending') return { claimed: false, reason: renewal.status, renewal };
+
+    const dep = getDeploymentByLicense(renewal.license_key);
+    if (!dep) return { claimed: false, reason: 'deployment_not_found', renewal };
+
+    const base = dep.expires_at && new Date(dep.expires_at).getTime() > Date.now()
+        ? new Date(dep.expires_at) : new Date();
+    const newExpiry = new Date(base.getTime() + renewal.duration_days * 86400000).toISOString();
+
+    const claim = db.prepare(
+        "UPDATE renewals SET status = 'paid', paid_at = ?, provider_status = 'SUCCESS', error_message = NULL WHERE order_id = ? AND status = 'pending'"
+    ).run(paidAt || new Date().toISOString(), orderId);
+    if (claim.changes !== 1) {
+        return { claimed: false, reason: 'already_claimed', renewal: getRenewalByOrderId(orderId) };
+    }
+
+    db.prepare('UPDATE deployments SET expires_at = ? WHERE container_name = ?')
+        .run(newExpiry, dep.container_name);
+
+    return {
+        claimed: true,
+        renewal: getRenewalByOrderId(orderId),
+        deployment: dep,
+        extended: { containerName: dep.container_name, oldExpiresAt: dep.expires_at, newExpiresAt: newExpiry }
+    };
+});
 
 /**
  * Create deployment record for imported containers.
@@ -434,16 +516,21 @@ module.exports = {
     updateDeploymentStatus,
     getRunningCount,
     getExpiredDeployments,
+    getRenewedExpiredDeployments,
     getExpiringSoon,
     deleteDeployment,
     updateExpiresAt,
     createRenewal,
     getRenewalByOrderId,
+    updateRenewalProvider,
+    updateRenewalStatus,
+    getPendingRenewals,
     getRenewalsByLicense,
     getAllRenewals,
     getPaidRenewalTotal,
     markRenewalPaid,
     extendDeploymentExpiry,
+    fulfillRenewal,
     addSystemLog,
     getSystemLogs,
     getSystemLogsCount

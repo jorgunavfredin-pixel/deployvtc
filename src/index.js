@@ -4,6 +4,7 @@ const path = require('path');
 const routes = require('./routes');
 const { adminPath, adminPassword, jwtSecret } = require('./secret');
 const { startExpiryCron, startAutoBackupCron } = require('./cron');
+const { startRenewalPolling, stopRenewalPolling } = require('./services/renewPayment');
 const app = express();
 const PORT = process.env.PORT || 800;
 
@@ -56,11 +57,13 @@ const server = app.listen(PORT, () => {
 // Start crons (expiry check + auto backup) — jalan tanpa bot Telegram.
 startExpiryCron();
 startAutoBackupCron();
-console.log('⏰ Crons started (expiry check + auto backup)');
+startRenewalPolling();
+console.log('⏰ Crons started (expiry check + auto backup + renewal polling)');
 
 // Graceful shutdown
 const shutdown = (signal) => {
     console.log(`\n⏹ ${signal} received, shutting down...`);
+    stopRenewalPolling();
     server.close(() => {
         console.log('✅ Server closed');
         process.exit(0);

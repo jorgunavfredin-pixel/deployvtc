@@ -152,6 +152,29 @@ router.post('/api/renew/create', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/renew/status/:order_id
+ * Status LOKAL untuk popup buyer. Tidak memanggil KlikQRIS; aman dipoll tiap
+ * beberapa detik sementara webhook/poller backend menyelesaikan transaksi.
+ */
+router.get('/api/renew/status/:orderId', (req, res) => {
+    const orderId = String(req.params.orderId || '').trim();
+    const renewal = db.getRenewalByOrderId(orderId);
+    if (!renewal) return res.status(404).json({ success: false, error: 'Transaksi tidak ditemukan' });
+
+    const dep = db.getDeploymentByLicense(renewal.license_key);
+    return res.json({
+        success: true,
+        paid: renewal.status === 'paid',
+        status: renewal.status,
+        order_id: renewal.order_id,
+        amount: renewal.total_amount || renewal.amount,
+        days: renewal.duration_days,
+        paid_at: renewal.paid_at || null,
+        new_expires_at: renewal.status === 'paid' ? (dep?.expires_at || null) : null
+    });
+});
+
 /** POST /api/renew/confirm { order_id } — manual fallback buyer */
 router.post('/api/renew/confirm', async (req, res) => {
     try {

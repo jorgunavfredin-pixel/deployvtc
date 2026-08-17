@@ -161,6 +161,26 @@ test('amount kurang ditolak dan expiry provider disimpan', async () => {
     assert.equal(db.getRenewalByOrderId(expired).status, 'expired');
 });
 
+test('endpoint status lokal mencerminkan paid tanpa memanggil KlikQRIS', async () => {
+    const order = `REN-LOCAL-${Date.now()}`;
+    db.createRenewal(license.key, order, 3000, 3);
+    db.updateRenewalProvider(order, { total_amount: 3030, status: 'PENDING' });
+    const fulfilled = db.fulfillRenewal(order, new Date().toISOString());
+    assert.equal(fulfilled.claimed, true);
+
+    const { server, base } = await startApp();
+    try {
+        const response = await fetch(`${base}/api/renew/status/${encodeURIComponent(order)}`);
+        const data = await response.json();
+        assert.equal(response.status, 200);
+        assert.equal(data.success, true);
+        assert.equal(data.paid, true);
+        assert.equal(data.amount, 3030);
+        assert.equal(data.days, 3);
+        assert.equal(data.new_expires_at, db.getDeploymentByLicense(license.key).expires_at);
+    } finally { server.close(); }
+});
+
 test('poller menghidupkan ulang deployment expired yang sudah diperpanjang', async () => {
     const dep = db.getDeploymentByLicense(license.key);
     db.updateDeploymentStatus(dep.container_name, 'expired');

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { KeyRound, RefreshCw, CheckCircle, Clock, CreditCard, Home, X, QrCode, Loader, AlertCircle, ClipboardList, Wallet, User, Store, Activity, CalendarClock } from 'lucide-react'
@@ -22,6 +22,60 @@ export default function Renew() {
     const [payModal, setPayModal] = useState(null) // { order_id, amount, days, qr, signature, status }
     const [confirming, setConfirming] = useState(false)
     const [successView, setSuccessView] = useState(null) // { days, newExpiresAt } — layar sukses penuh
+    const autoCheckBusy = useRef(false)
+
+    const showPaidSuccess = async ({ days, amount, newExpiresAt = null }) => {
+        let latestExpiry = newExpiresAt
+        try {
+            const chk = await fetch(`/api/renew/check?key=${encodeURIComponent(info?.license?.key || '')}`).then(r => r.json())
+            if (chk.success) {
+                setInfo(chk)
+                latestExpiry = latestExpiry || chk.license?.expires_at || null
+            }
+        } catch { /* status paid sudah authoritative dari backend; refresh detail boleh gagal */ }
+        setPayModal(null)
+        setSuccessView({ days, amount, newExpiresAt: latestExpiry })
+    }
+
+    // Popup hanya mem-poll DB lokal deployvtc. KlikQRIS tetap dipantau backend
+    // melalui webhook utama + polling fallback 20 detik.
+    useEffect(() => {
+        const orderId = payModal?.order_id
+        if (!orderId || payModal.status === 'paid' || payModal.status === 'expired') return undefined
+
+        let cancelled = false
+        const checkLocalStatus = async () => {
+            if (cancelled || autoCheckBusy.current) return
+            autoCheckBusy.current = true
+            try {
+                const response = await fetch(`/api/renew/status/${encodeURIComponent(orderId)}`, { cache: 'no-store' })
+                const data = await response.json()
+                if (cancelled || !data.success) return
+                if (data.paid) {
+                    await showPaidSuccess({
+                        days: data.days || payModal.days,
+                        amount: data.amount || payModal.amount,
+                        newExpiresAt: data.new_expires_at || null
+                    })
+                } else if (['expired', 'failed'].includes(data.status)) {
+                    setPayModal(m => m?.order_id === orderId ? {
+                        ...m,
+                        status: 'expired',
+                        message: data.status === 'failed' ? 'Transaksi gagal dibuat. Silakan buat ulang.' : 'Transaksi kadaluarsa. Silakan buat ulang.'
+                    } : m)
+                }
+            } catch { /* jaringan browser sementara; interval berikutnya retry */ }
+            finally { autoCheckBusy.current = false }
+        }
+
+        checkLocalStatus()
+        const timer = window.setInterval(checkLocalStatus, 3000)
+        return () => {
+            cancelled = true
+            window.clearInterval(timer)
+            autoCheckBusy.current = false
+        }
+    }, [payModal?.order_id, payModal?.status])
 
     const checkLicense = async () => {
         const k = key.trim().toUpperCase()
@@ -99,21 +153,13 @@ export default function Renew() {
             })
             const data = await res.json()
             if (data.success && data.paid) {
-                // Sukses: update detail license + tampilkan layar sukses penuh
-                const chk = await fetch(`/api/renew/check?key=${encodeURIComponent(info.license.key)}`).then(r => r.json())
-                if (chk.success) setInfo(chk)
-                setPayModal(null)
-                setSuccessView({
+                await showPaidSuccess({
                     days: payModal.days,
                     amount: payModal.amount,
-                    newExpiresAt: data.extended?.newExpiresAt || chk.license?.expires_at || null
+                    newExpiresAt: data.extended?.newExpiresAt || null
                 })
             } else if (data.success && data.already_paid) {
-                // Sudah dibayar sebelumnya — langsung sukses juga
-                const chk = await fetch(`/api/renew/check?key=${encodeURIComponent(info.license.key)}`).then(r => r.json())
-                if (chk.success) setInfo(chk)
-                setPayModal(null)
-                setSuccessView({ days: payModal.days, amount: payModal.amount, newExpiresAt: chk.license?.expires_at || null })
+                await showPaidSuccess({ days: payModal.days, amount: payModal.amount })
             } else if (data.success) {
                 setPayModal(m => ({ ...m, status: data.status === 'expired' ? 'expired' : 'pending', message: data.message }))
             } else {
@@ -328,6 +374,9 @@ export default function Renew() {
                         {/* Actions */}
                         {payModal.status !== 'paid' && (
                             <div className="pay-actions">
+                                <div style={{ width: '100%', textAlign: 'center', color: 'var(--text-dim)', fontSize: '0.76rem', marginBottom: '0.15rem' }}>
+                                    Status terdeteksi otomatis · fallback setiap beberapa detik
+                                </div>
                                 <button className="btn btn-primary" onClick={confirmPay} disabled={confirming} style={{ width: '100%' }}>
                                     {confirming ? <><span className="spinner" /> Mengecek...</> : <><CheckCircle size={16} /> Saya Sudah Bayar — Cek Status</>}
                                 </button>

@@ -274,6 +274,13 @@ QRIS_PRESET_DIR=
 # Harga per bulan (Rp). Harga per hari dihitung = harga/bulan / 30.
 RENEW_PRICE_PER_MONTH=30000
 
+# Callback renewal KlikQRIS. Nilai final disesuaikan otomatis setelah setup
+# Nginx/domain selesai (IP:800 jika tanpa domain; domain tanpa port jika proxy).
+RENEW_WEBHOOK_URL=http://${DETECTED_IP}:800/webhook/renew/klikqris
+
+# Polling fallback jika callback tidak masuk (milidetik; minimum 10000).
+RENEW_POLL_INTERVAL_MS=20000
+
 # Kredensial KlikQRIS untuk pembayaran perpanjangan.
 # Kosong = fitur renew tidak bisa dipakai buyer.
 KLIKQRIS_API_KEY=${KQ_API_KEY}
@@ -384,6 +391,42 @@ else
     echo "Skipped Nginx. Akses via http://<IP>:800"
 fi
 
+# ==================== RENEW CALLBACK ENV ====================
+# Berlaku untuk .env baru MAUPUN .env existing yang dipertahankan. Tidak menyentuh
+# credential/harga; hanya memastikan key webhook/polling baru tersedia.
+if [ -f ".env" ]; then
+    ENV_PORT=$(grep "^PORT=" .env | cut -d= -f2-)
+    ENV_PORT=${ENV_PORT:-800}
+    ENV_VPS=$(grep "^VPS_IP=" .env | cut -d= -f2-)
+    ENV_VPS=${ENV_VPS:-${DETECTED_IP:-localhost}}
+
+    if [ -n "$DOMAIN" ]; then
+        if [ "$DO_SSL" = "y" ]; then
+            RENEW_CALLBACK="https://${DOMAIN}/webhook/renew/klikqris"
+        else
+            RENEW_CALLBACK="http://${DOMAIN}/webhook/renew/klikqris"
+        fi
+    else
+        RENEW_CALLBACK="http://${ENV_VPS}:${ENV_PORT}/webhook/renew/klikqris"
+    fi
+
+    CURRENT_RENEW_CALLBACK=$(grep '^RENEW_WEBHOOK_URL=' .env | cut -d= -f2-)
+    if ! grep -q '^RENEW_WEBHOOK_URL=' .env; then
+        printf '\n# Callback KlikQRIS renewal (diisi otomatis setup.sh)\nRENEW_WEBHOOK_URL=%s\n' "$RENEW_CALLBACK" >> .env
+    elif [ -z "$CURRENT_RENEW_CALLBACK" ]; then
+        sed -i "s|^RENEW_WEBHOOK_URL=.*|RENEW_WEBHOOK_URL=${RENEW_CALLBACK}|" .env
+    else
+        # Existing custom callback milik user jangan ditimpa setup ulang.
+        RENEW_CALLBACK="$CURRENT_RENEW_CALLBACK"
+    fi
+
+    if ! grep -q '^RENEW_POLL_INTERVAL_MS=' .env; then
+        printf '# Polling fallback renewal (20 detik)\nRENEW_POLL_INTERVAL_MS=20000\n' >> .env
+    fi
+
+    echo -e "${GREEN}Renew webhook: ${RENEW_CALLBACK}${NC}"
+fi
+
 # ==================== START ====================
 echo -e "${YELLOW}Starting deployvtc...${NC}"
 
@@ -415,6 +458,7 @@ echo "║  🌐 Web: https://${DOMAIN}"
 else
 echo "║  🌐 Web: http://${VPS_IP_FINAL}:${PORT_FINAL}"
 fi
+echo "║  💳 Renew webhook: ${RENEW_CALLBACK}"
 echo "║  🤖 Admin Bot: Running via PM2               ║"
 echo "║  🐳 Docker Image: store-bot                  ║"
 echo "║  📁 Data: /root/data                         ║"
